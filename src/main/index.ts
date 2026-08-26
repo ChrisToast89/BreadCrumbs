@@ -183,6 +183,7 @@ async function analyzeProject(path: string): Promise<IpcResult<AnalyzedProject>>
           shots: result.shots,
           picks: result.picks,
           settings: DEFAULT_SETTINGS,
+          metrics: result.metrics,
           thumbnails: {
             data: packed.buffer.slice(packed.byteOffset, packed.byteOffset + packed.byteLength),
             offsets,

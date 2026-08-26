@@ -77,6 +77,20 @@
   --grip: rgba(255, 255, 255, 0.28);
   --tick-line: 1px solid rgba(255, 255, 255, 0.12);
 
+  /* A rejected shot stays in the overview but must read as set aside. The
+     blocks carry no colour, so desaturation alone would be invisible — a
+     hatch says "excluded" at a glance. */
+  --rejected-hatch: repeating-linear-gradient(
+    135deg,
+    rgba(200, 206, 213, 0.14) 0 1px,
+    transparent 1px 5px
+  );
+
+  /* -- Editing affordances ---------------------------------------------- */
+  --carrot-width: 12px;
+  --carrot-height: 8px;
+  --remove-size: 14px;
+
   /* -- Radius -----------------------------------------------------------
      1a rounds nothing. Kept as a token so the intent is explicit rather
      than an omission. */

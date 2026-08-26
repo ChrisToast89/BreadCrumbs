@@ -18,7 +18,9 @@
  *   metrics         phase 3    Min/max/mean per signal, plus a PNG plot
  *   detect          phase 4    Shot table, chosen frame per shot and why,
  *                              plus a plot with the detected cuts marked
- *   export          phase 6/7  Dry run — the filenames that would be written
+ *   edit            phase 6    Merge, split, reject, out-frames, undo — all
+ *                              exercised at the data layer, no UI involved
+ *   export          phase 7    Dry run — the filenames that would be written
  *
  * Flags:
  *   --verify   Cross-check results against an independent ffprobe call. Slow;
@@ -36,6 +38,7 @@ import { runPipeline, STEP_LABELS } from '../src/main/pipeline.js';
 import { chooseOutFrame, detectShots } from '../src/main/detect.js';
 import { DEFAULT_SETTINGS } from '../src/shared/settings.js';
 import { assertPickRules } from '../src/shared/picks.js';
+import { runEditingChecks } from './editing-checks.js';
 import type { Shot } from '../src/shared/types.js';
 import { plotSeries } from './png.js';
 import { FFPROBE_PATH } from '../src/main/media/binaries.js';
@@ -661,8 +664,36 @@ const detectReporter: Reporter = {
   },
 };
 
+const editReporter: Reporter = {
+  name: 'edit',
+  phase: 6,
+  async run(file, options) {
+    const projectDir = await projectDirFor(join(projectRoot, 'inspect-out'), file);
+    const result = await runPipeline({
+      sourcePath: file,
+      projectDir,
+      ...(options.force ? { force: true } : {}),
+    });
+
+    section('editing checks');
+    const started = Date.now();
+    const checks = runEditingChecks(result.shots, result.picks, result.metrics, DEFAULT_SETTINGS);
+    const elapsed = Date.now() - started;
+
+    for (const entry of checks) checkLine(entry.label, entry.passed, entry.detail);
+    field('all edits took', `${elapsed}ms`);
+  },
+};
+
 /** Phases add their reporters here, in pipeline order. */
-const reporters: Reporter[] = [fileReporter, indexReporter, proxyReporter, metricsReporter, detectReporter];
+const reporters: Reporter[] = [
+  fileReporter,
+  indexReporter,
+  proxyReporter,
+  metricsReporter,
+  detectReporter,
+  editReporter,
+];
 
 // --- fixture discovery -----------------------------------------------------
 

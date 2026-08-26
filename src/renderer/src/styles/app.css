@@ -423,6 +423,27 @@ button {
   max-height: calc(var(--board-pair-thumb-height) * 2.6);
 }
 
+/* The A/B badge on a paired cell. SPEC §7 requires the pairing to read at a
+   glance — the bracket, the shared backing and this badge together are what
+   stop two stacked thumbnails looking like two separate shots. */
+.pair__badge {
+  position: absolute;
+  top: calc(-1 * var(--space-1));
+  right: calc(-1 * var(--space-1));
+  z-index: 1;
+  padding: 0 var(--space-2);
+  background: var(--accent);
+  color: var(--surface-chrome);
+  font-family: var(--font-mono);
+  font-size: var(--text-85);
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0.04em;
+}
+
+.pair {
+  position: relative;
+}
+
 .pair__letter {
   position: absolute;
   left: var(--space-1);
@@ -451,6 +472,30 @@ button {
 }
 
 .cell__flag--check {
+  color: var(--attention);
+}
+
+/* Remove control, revealed on hover (SPEC §7). Rejecting keeps the shot in the
+   overview, desaturated — it takes it off the board, it does not delete it. */
+.cell__remove {
+  width: var(--remove-size);
+  height: var(--remove-size);
+  margin-left: var(--space-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink-dim);
+  font-size: var(--text-12);
+  line-height: 1;
+  opacity: 0;
+}
+
+.cell:hover .cell__remove,
+.cell__remove:focus-visible {
+  opacity: 1;
+}
+
+.cell__remove:hover {
   color: var(--attention);
 }
 
@@ -602,8 +647,13 @@ button {
 }
 
 .block--rejected {
-  background: var(--shot-block-rejected);
+  background-color: var(--shot-block-rejected);
+  background-image: var(--rejected-hatch);
   filter: grayscale(1);
+}
+
+.block--rejected .block__pair {
+  opacity: 0.4;
 }
 
 .block:hover {
@@ -673,6 +723,10 @@ button {
   flex: 1;
 }
 
+.shotrow--panning {
+  cursor: grabbing;
+}
+
 .shotrow {
   flex: 1;
   min-height: 0;
@@ -736,6 +790,16 @@ button {
   outline-offset: -1px;
 }
 
+/* The carrot under the pointer gets a grab cursor; it drags at 1:1. */
+.frame--a,
+.frame--b {
+  cursor: grab;
+}
+
+.frame--current {
+  z-index: 1;
+}
+
 .frame--b {
   outline: var(--focus-ring);
   outline-offset: -1px;
@@ -745,10 +809,10 @@ button {
 .frame__tab {
   position: absolute;
   left: 50%;
-  top: -9px;
+  top: calc(-1 * var(--carrot-height) - 1px);
   transform: translateX(-50%);
-  width: 12px;
-  height: var(--space-5);
+  width: var(--carrot-width);
+  height: var(--carrot-height);
 }
 
 .frame__tab--a {

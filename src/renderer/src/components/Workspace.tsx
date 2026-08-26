@@ -4,9 +4,8 @@
  * Fixed 200px board on the left; the remainder split horizontally between
  * preview (top) and timeline (bottom), user-draggable.
  *
- * The keyboard map is SPEC §7's. Phase 5 wires only the read-only half of it:
- * up and down step through every frame on the board, and Tab toggles between
- * A and B within the selected shot. The editing keys land in phase 6.
+ * The SPEC §7 keyboard map is wired here, at the window, so it works wherever
+ * focus happens to be — except inside a text field, which keeps its own keys.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -56,12 +55,18 @@ function Header(): JSX.Element {
 }
 
 export function Workspace(): JSX.Element {
-  const shots = useStore((state) => state.shots);
   const picks = useStore((state) => state.picks);
   const selectedShotId = useStore((state) => state.selectedShotId);
   const selectedPickId = useStore((state) => state.selectedPickId);
   const selectPick = useStore((state) => state.selectPick);
   const stepPick = useStore((state) => state.stepPick);
+  const nudgeSelected = useStore((state) => state.nudgeSelected);
+  const mergeSelected = useStore((state) => state.mergeSelected);
+  const splitSelected = useStore((state) => state.splitSelected);
+  const toggleRejectSelected = useStore((state) => state.toggleRejectSelected);
+  const toggleOutFrame = useStore((state) => state.toggleOutFrame);
+  const removeOutFrame = useStore((state) => state.removeOutFrame);
+  const undo = useStore((state) => state.undo);
 
   const [timelineHeight, setTimelineHeight] = useState(246);
   const splitRef = useRef<HTMLDivElement>(null);
@@ -87,20 +92,53 @@ export function Workspace(): JSX.Element {
     };
   }, [onPointerMove, stopDrag]);
 
-  // SPEC §7 keyboard map — the read-only subset.
+  // The SPEC §7 keyboard map, in full.
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent): void => {
-      // Up and down step through every frame on the board, A and B alike.
-      if (event.key === 'ArrowDown') {
-        event.preventDefault();
-        stepPick(1);
+      // Never steal keys from a text field — the export pattern editor in
+      // phase 7 will be one.
+      const target = event.target as HTMLElement | null;
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
         return;
       }
-      if (event.key === 'ArrowUp') {
+
+      // Undo first: it must work regardless of what else is bound.
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z') {
         event.preventDefault();
-        stepPick(-1);
+        undo();
         return;
       }
+      if (event.ctrlKey || event.metaKey || event.altKey) return;
+
+      switch (event.key) {
+        // Left and right nudge the pick by one frame, ten with shift.
+        case 'ArrowLeft':
+          event.preventDefault();
+          nudgeSelected(event.shiftKey ? -10 : -1);
+          return;
+        case 'ArrowRight':
+          event.preventDefault();
+          nudgeSelected(event.shiftKey ? 10 : 1);
+          return;
+        // Up and down step through every frame on the board, A and B alike.
+        case 'ArrowDown':
+          event.preventDefault();
+          stepPick(1);
+          return;
+        case 'ArrowUp':
+          event.preventDefault();
+          stepPick(-1);
+          return;
+        case 'Delete':
+        case 'Backspace':
+          // Removes the out-frame only. A shot always has A (SPEC §7).
+          event.preventDefault();
+          removeOutFrame();
+          return;
+        default:
+          break;
+      }
+
       // Tab toggles between A and B within the selected shot.
       if (event.key === 'Tab' && selectedShotId) {
         const mine = picksForShot(picks, selectedShotId);
@@ -108,12 +146,47 @@ export function Workspace(): JSX.Element {
         event.preventDefault();
         const other = mine.find((pick) => pick.id !== selectedPickId);
         if (other) selectPick(other.id);
+        return;
+      }
+
+      switch (event.key.toLowerCase()) {
+        case 'm':
+          event.preventDefault();
+          mergeSelected();
+          break;
+        case 's':
+          event.preventDefault();
+          splitSelected();
+          break;
+        case 'x':
+          event.preventDefault();
+          toggleRejectSelected();
+          break;
+        case 'b':
+          event.preventDefault();
+          toggleOutFrame();
+          break;
+        default:
+          break;
       }
     };
 
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [picks, selectPick, selectedPickId, selectedShotId, stepPick, shots]);
+  }, [
+    mergeSelected,
+    nudgeSelected,
+    picks,
+    removeOutFrame,
+    selectPick,
+    selectedPickId,
+    selectedShotId,
+    splitSelected,
+    stepPick,
+    toggleOutFrame,
+    toggleRejectSelected,
+    undo,
+  ]);
 
   return (
     <div className="workspace">

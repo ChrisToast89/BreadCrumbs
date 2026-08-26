@@ -19,6 +19,20 @@ import type {
   Shot,
 } from '../../shared/types.js';
 import { picksForShot } from '../../shared/picks.js';
+import {
+  addOutFrame,
+  mergeIntoPrevious,
+  movePickTo,
+  nudgePick,
+  remember,
+  removeOutFrame,
+  splitAt,
+  toggleOutFrame,
+  toggleRejected,
+  undo as undoHistory,
+  type Board,
+  type History,
+} from '../../shared/editing.js';
 
 export type Screen = 'intake' | 'analyzing' | 'workspace' | 'error';
 
@@ -62,7 +76,32 @@ interface State {
   selectPick: (pickId: string) => void;
   /** Step through every pick on the board in order, A and B alike (SPEC §7). */
   stepPick: (delta: number) => void;
+
+  // --- Editing (SPEC §7). Every one of these is undoable.
+  /** Drag or click the carrot to a frame. Clamped to the shot and partner (I8). */
+  movePick: (pickId: string, frame: number) => void;
+  /** Arrow keys: 1 frame, or 10 with shift. */
+  nudgeSelected: (delta: number) => void;
+  /** `B` — add an out-frame at its default position, or remove it. */
+  toggleOutFrame: () => void;
+  /** Double-click on the shot row — add an out-frame at that frame. */
+  addOutFrameAt: (frame: number) => void;
+  /** `Delete` — remove the out-frame. Never removes A. */
+  removeOutFrame: () => void;
+  /** `M` — merge the selected shot into the previous one. */
+  mergeSelected: () => void;
+  /** `S` — split the selected shot at the selected frame. */
+  splitSelected: () => void;
+  /** `X` — reject or unreject the selected shot. */
+  toggleRejectSelected: () => void;
+  /** Ctrl/Cmd+Z. */
+  undo: () => void;
+  /** How many steps are available, for the interface to disable undo. */
+  undoDepth: () => number;
 }
+
+/** Undo history, kept outside the store's render-visible state. */
+let history: History = { past: [] };
 
 /** Picks in board order: by shot, then A before B (SPEC §4). */
 export function orderedPicks(shots: readonly Shot[], picks: readonly Pick[]): Pick[] {
@@ -91,6 +130,7 @@ export const useStore = create<State>((set, get) => ({
   },
 
   analyze: async (path: string) => {
+    history = { past: [] };
     // One run at a time. Two analyses of the same clip would write the same
     // proxy file concurrently and corrupt it, and the frame-count check cannot
     // catch that because the container header still reads correctly.
@@ -146,6 +186,7 @@ export const useStore = create<State>((set, get) => ({
   },
 
   reset: () => {
+    history = { past: [] };
     for (const url of get().thumbnails?.urls ?? []) URL.revokeObjectURL(url);
     set({
       screen: 'intake',
@@ -174,6 +215,66 @@ export const useStore = create<State>((set, get) => ({
     set({ selectedPickId: pick.id, selectedShotId: pick.shotId });
   },
 
+  movePick: (pickId, frame) => applyEdit(set, get, (board) => movePickTo(board, pickId, frame)),
+
+  nudgeSelected: (delta) => {
+    const pickId = get().selectedPickId;
+    if (!pickId) return;
+    applyEdit(set, get, (board) => nudgePick(board, pickId, delta));
+  },
+
+  toggleOutFrame: () => {
+    const { selectedShotId, project } = get();
+    if (!selectedShotId || !project) return;
+    applyEdit(set, get, (board) =>
+      toggleOutFrame(board, selectedShotId, project.metrics, project.settings),
+    );
+  },
+
+  addOutFrameAt: (frame) => {
+    const { selectedShotId, project } = get();
+    if (!selectedShotId || !project) return;
+    applyEdit(set, get, (board) =>
+      addOutFrame(board, selectedShotId, project.metrics, project.settings, frame),
+    );
+  },
+
+  removeOutFrame: () => {
+    const shotId = get().selectedShotId;
+    if (!shotId) return;
+    applyEdit(set, get, (board) => removeOutFrame(board, shotId));
+  },
+
+  mergeSelected: () => {
+    const shotId = get().selectedShotId;
+    if (!shotId) return;
+    applyEdit(set, get, (board) => mergeIntoPrevious(board, shotId));
+  },
+
+  splitSelected: () => {
+    const { selectedShotId, selectedPickId, picks, project } = get();
+    if (!selectedShotId || !project) return;
+    const at = picks.find((pick) => pick.id === selectedPickId)?.frame;
+    if (at === undefined) return;
+    applyEdit(set, get, (board) => splitAt(board, selectedShotId, at, project.metrics, project.settings));
+  },
+
+  toggleRejectSelected: () => {
+    const shotId = get().selectedShotId;
+    if (!shotId) return;
+    applyEdit(set, get, (board) => toggleRejected(board, shotId));
+  },
+
+  undo: () => {
+    const result = undoHistory(history);
+    if (!result.board) return;
+    history = result.history;
+    set({ shots: result.board.shots, picks: result.board.picks });
+    reselect(set, get, result.board);
+  },
+
+  undoDepth: () => history.past.length,
+
   stepPick: (delta: number) => {
     const { shots, picks, selectedPickId } = get();
     const order = orderedPicks(shots, picks);
@@ -184,6 +285,44 @@ export const useStore = create<State>((set, get) => ({
     if (next) set({ selectedPickId: next.id, selectedShotId: next.shotId });
   },
 }));
+
+/**
+ * Run one edit: snapshot for undo, apply, then keep the selection pointing at
+ * something that still exists. Operations that change nothing (a merge on the
+ * first shot, a third frame on a shot) leave no undo step behind.
+ */
+function applyEdit(
+  set: (partial: Partial<State>) => void,
+  get: () => State,
+  operation: (board: Board) => Board,
+): void {
+  const before: Board = { shots: get().shots, picks: get().picks };
+  const after = operation(before);
+
+  if (after.shots === before.shots && after.picks === before.picks) return;
+
+  history = remember(history, before);
+  set({ shots: after.shots, picks: after.picks });
+  reselect(set, get, after);
+}
+
+/** Keep the selection valid after a structural change. */
+function reselect(set: (partial: Partial<State>) => void, get: () => State, board: Board): void {
+  const { selectedShotId, selectedPickId } = get();
+
+  const shot =
+    board.shots.find((candidate) => candidate.id === selectedShotId) ??
+    board.shots.find((candidate) => !candidate.rejected) ??
+    board.shots[0];
+  if (!shot) {
+    set({ selectedShotId: null, selectedPickId: null });
+    return;
+  }
+
+  const mine = picksForShot(board.picks, shot.id);
+  const stillThere = mine.find((pick) => pick.id === selectedPickId);
+  set({ selectedShotId: shot.id, selectedPickId: (stillThere ?? mine[0])?.id ?? null });
+}
 
 /** Subscribe once to progress events from the main process. */
 export function attachProgressListener(): () => void {

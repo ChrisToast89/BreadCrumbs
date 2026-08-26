@@ -29,6 +29,7 @@ interface CellProps {
   selectedPickId: string | null;
   selected: boolean;
   onSelectPick: (pickId: string) => void;
+  onReject: (shotId: string) => void;
 }
 
 function BoardCell({
@@ -40,6 +41,7 @@ function BoardCell({
   selectedPickId,
   selected,
   onSelectPick,
+  onReject,
 }: CellProps): JSX.Element {
   const mine = picksForShot(picks, shot.id);
   const a = mine.find((pick) => pick.role === 'A');
@@ -63,6 +65,7 @@ function BoardCell({
       <div className="cell__body">
         {paired && a && b ? (
           <div className="pair">
+            <span className="pair__badge">A/B</span>
             <button
               type="button"
               className={`pair__half${selectedPickId === a.id ? ' pair__half--selected' : ''}`}
@@ -96,6 +99,15 @@ function BoardCell({
         <div className="cell__meta">
           <span className="cell__tc">{timecodeOf(index, a?.frame ?? shot.startFrame)}</span>
           <span className={`cell__flag${flag === 'check' ? ' cell__flag--check' : ''}`}>{flag}</span>
+          <button
+            type="button"
+            className="cell__remove"
+            onClick={() => onReject(shot.id)}
+            aria-label={`Remove shot ${position + 1} from the board`}
+            title="Remove from the board (X)"
+          >
+            ×
+          </button>
         </div>
       </div>
     </div>
@@ -110,6 +122,8 @@ export function Board(): JSX.Element {
   const selectedShotId = useStore((state) => state.selectedShotId);
   const selectedPickId = useStore((state) => state.selectedPickId);
   const selectPick = useStore((state) => state.selectPick);
+  const toggleReject = useStore((state) => state.toggleRejectSelected);
+  const selectShot = useStore((state) => state.selectShot);
 
   const scrollerRef = useRef<HTMLDivElement>(null);
 
@@ -161,6 +175,10 @@ export function Board(): JSX.Element {
             selectedPickId={selectedPickId}
             selected={shot.id === selectedShotId}
             onSelectPick={selectPick}
+            onReject={(id) => {
+              selectShot(id);
+              toggleReject();
+            }}
           />
         ))}
       </div>

@@ -10,15 +10,13 @@
  * Shot row: the selected shot at frame resolution, one thumbnail per frame,
  * with A (and B, when present) marked by the design's tab-and-outline device.
  *
- * Phase 5 is read-only. The draggable carrot, wheel zoom and middle-drag pan
- * arrive in phase 6.
+ * The shot row itself, with its draggable carrots and zoom, is its own module.
  */
 
-import { useEffect, useRef, type CSSProperties } from 'react';
-import type { Pick, Shot } from '../../../shared/types.js';
 import { picksForShot } from '../../../shared/picks.js';
 import { useStore } from '../store.js';
 import { shortTimecodeOf, timecodeOf } from '../timecode.js';
+import { ShotRow } from './ShotRow.js';
 
 function Overview(): JSX.Element {
   const project = useStore((state) => state.project);
@@ -81,88 +79,6 @@ function Overview(): JSX.Element {
         })}
       </div>
     </>
-  );
-}
-
-interface ShotRowProps {
-  shot: Shot;
-  mine: Pick[];
-}
-
-function ShotRow({ shot, mine }: ShotRowProps): JSX.Element {
-  const project = useStore((state) => state.project);
-  const thumbnails = useStore((state) => state.thumbnails);
-  const selectedPickId = useStore((state) => state.selectedPickId);
-  const selectPick = useStore((state) => state.selectPick);
-
-  const scrollerRef = useRef<HTMLDivElement>(null);
-  const a = mine.find((pick) => pick.role === 'A');
-  const b = mine.find((pick) => pick.role === 'B');
-
-  // Keep the selected frame in view as selection moves between shots.
-  useEffect(() => {
-    const scroller = scrollerRef.current;
-    if (!scroller) return;
-    const cell = scroller.querySelector<HTMLElement>('.frame--a');
-    if (!cell) return;
-    const cellBox = cell.getBoundingClientRect();
-    const viewBox = scroller.getBoundingClientRect();
-    if (cellBox.left < viewBox.left || cellBox.right > viewBox.right) {
-      scroller.scrollLeft += cellBox.left - viewBox.left - viewBox.width / 3;
-    }
-  }, [shot.id, a?.frame]);
-
-  if (!project || !thumbnails) return <div className="shotrow" />;
-
-  const frames: number[] = [];
-  for (let frame = shot.startFrame; frame <= shot.endFrame; frame += 1) frames.push(frame);
-
-  return (
-    <div className="shotrow" ref={scrollerRef}>
-      <div
-        className="shotrow__strip"
-        // Display geometry drives the cell shape (I5).
-        style={
-          {
-            '--frame-aspect': `${project.index.displayWidth} / ${project.index.displayHeight}`,
-          } as CSSProperties
-        }
-      >
-        {frames.map((frame) => {
-          const isA = a?.frame === frame;
-          const isB = b?.frame === frame;
-          const inSpan = a !== undefined && b !== undefined && frame > a.frame && frame < b.frame;
-          const pickHere = isA ? a : isB ? b : undefined;
-
-          return (
-            <button
-              type="button"
-              key={frame}
-              className={[
-                'frame',
-                isA ? 'frame--a' : '',
-                isB ? 'frame--b' : '',
-                inSpan ? 'frame--span' : '',
-                pickHere && pickHere.id === selectedPickId ? 'frame--current' : '',
-              ]
-                .filter(Boolean)
-                .join(' ')}
-              onClick={() => {
-                if (pickHere) selectPick(pickHere.id);
-              }}
-              aria-label={`Frame ${frame}`}
-            >
-              <img className="frame__image" src={thumbnails.urls[frame]} alt="" draggable={false} />
-              {isA ? <span className="frame__tab frame__tab--a" aria-hidden="true" /> : null}
-              {isB ? <span className="frame__tab frame__tab--b" aria-hidden="true" /> : null}
-              {isA ? <span className="frame__letter">A</span> : null}
-              {isB ? <span className="frame__letter">B</span> : null}
-              <span className="frame__number">{String(frame - shot.startFrame).padStart(3, '0')}</span>
-            </button>
-          );
-        })}
-      </div>
-    </div>
   );
 }
 

@@ -161,6 +161,13 @@ export interface AnalyzedProject {
   picks: Pick[];
   settings: Settings;
   /**
+   * The per-frame measurements. Sent so the interface can apply the SPEC §6
+   * frame rule itself when a split creates a shot that needs a frame chosen —
+   * an IPC round trip per edit would be felt. Five arrays of frameCount
+   * floats: about 72KB for a two-minute clip.
+   */
+  metrics: FrameMetrics;
+  /**
    * All thumbnails concatenated, with a byte offset per frame. One transfer
    * instead of thousands: the renderer slices this into blob URLs once and
    * then every thumbnail read is an array index (SPEC §5).
