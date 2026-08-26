@@ -25,6 +25,8 @@ export function Preview(): JSX.Element {
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const [seekMs, setSeekMs] = useState<number | null>(null);
+  /** Set when the video landed somewhere other than the frame we asked for. */
+  const [outOfSync, setOutOfSync] = useState(false);
 
   const pick = picks.find((candidate) => candidate.id === selectedPickId) ?? null;
   const shot = shots.find((candidate) => candidate.id === pick?.shotId) ?? null;
@@ -41,6 +43,18 @@ export function Preview(): JSX.Element {
 
     const onSeeked = (): void => {
       setSeekMs(performance.now() - started);
+
+      // A seek that silently does nothing is the dangerous case: the element
+      // still fires `seeked`, so it reads as a fast success while the preview
+      // sits on the wrong frame. Checking where it actually landed turns that
+      // into something visible instead of something believed.
+      //
+      // The tolerance is half the gap to the neighbouring frame, taken from
+      // the PTS table (I1) rather than computed from the frame rate.
+      const neighbour = secondsOf(project.index, pick.frame + 1);
+      const gap = Math.abs(neighbour - target) || Math.abs(target - secondsOf(project.index, pick.frame - 1));
+      setOutOfSync(Math.abs(video.currentTime - target) > Math.max(0.001, gap / 2));
+
       video.removeEventListener('seeked', onSeeked);
     };
     video.addEventListener('seeked', onSeeked);
@@ -81,6 +95,7 @@ export function Preview(): JSX.Element {
         <span className="readout__spacer" />
         {project.index.variableFrameRate ? <span className="readout__badge">VFR</span> : null}
         {project.index.hdr ? <span className="readout__badge">HDR</span> : null}
+        {outOfSync ? <span className="readout__badge">PREVIEW OUT OF SYNC</span> : null}
         {seekMs !== null ? <span className="readout__quiet">seek {Math.round(seekMs)}ms</span> : null}
       </div>
     </section>

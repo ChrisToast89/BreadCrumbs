@@ -1,7 +1,9 @@
-import { app, BrowserWindow, dialog, ipcMain, net, protocol, shell } from 'electron';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { app, BrowserWindow, dialog, ipcMain, protocol, shell } from 'electron';
+import { fileURLToPath } from 'node:url';
 import { basename, dirname, join, resolve } from 'node:path';
-import { existsSync } from 'node:fs';
+import { createReadStream, existsSync } from 'node:fs';
+import { stat } from 'node:fs/promises';
+import { Readable } from 'node:stream';
 import type {
   AnalyzedProject,
   AppInfo,
@@ -42,8 +44,18 @@ function mediaUrlFor(absolutePath: string): string {
   return `${MEDIA_SCHEME}://media/${encodeURIComponent(absolutePath)}`;
 }
 
+/**
+ * Serve the proxy with byte-range support.
+ *
+ * This has to be a real range server, not a whole-file response. Chromium only
+ * treats a media resource as seekable when the server advertises ranges, and an
+ * unseekable <video> silently clamps every `currentTime` assignment back to
+ * zero — while still firing `seeked`, so it looks like a fast successful seek
+ * and the preview simply never leaves the first frame. Seeking is the entire
+ * job of the preview (SPEC §2), so this is load-bearing.
+ */
 function registerMediaProtocol(): void {
-  protocol.handle(MEDIA_SCHEME, (request) => {
+  protocol.handle(MEDIA_SCHEME, async (request) => {
     const url = new URL(request.url);
     const target = decodeURIComponent(url.pathname.replace(/^\//, ''));
 
@@ -51,7 +63,59 @@ function registerMediaProtocol(): void {
     if (!servableMedia.has(target)) {
       return new Response('Not found', { status: 404 });
     }
-    return net.fetch(pathToFileURL(target).toString(), { bypassCustomProtocolHandlers: true });
+
+    let size: number;
+    try {
+      size = (await stat(target)).size;
+    } catch {
+      return new Response('Not found', { status: 404 });
+    }
+
+    const headers: Record<string, string> = {
+      'Content-Type': 'video/mp4',
+      'Accept-Ranges': 'bytes',
+      // The proxy is regenerated per source and served only to this window.
+      'Cache-Control': 'no-store',
+    };
+
+    const range = /^bytes=(\d*)-(\d*)$/.exec(request.headers.get('Range') ?? '');
+    if (!range) {
+      return new Response(Readable.toWeb(createReadStream(target)) as ReadableStream, {
+        status: 200,
+        headers: { ...headers, 'Content-Length': String(size) },
+      });
+    }
+
+    // A range request. An open-ended start ("bytes=-500") counts back from the
+    // end; an open-ended end runs to the last byte.
+    const [, startText, endText] = range;
+    let start: number;
+    let end: number;
+
+    if (startText === '') {
+      const suffix = Number(endText);
+      start = Math.max(0, size - (Number.isFinite(suffix) ? suffix : 0));
+      end = size - 1;
+    } else {
+      start = Number(startText);
+      end = endText === '' ? size - 1 : Math.min(Number(endText), size - 1);
+    }
+
+    if (!Number.isFinite(start) || !Number.isFinite(end) || start > end || start >= size) {
+      return new Response(null, {
+        status: 416,
+        headers: { ...headers, 'Content-Range': `bytes */${size}` },
+      });
+    }
+
+    return new Response(Readable.toWeb(createReadStream(target, { start, end })) as ReadableStream, {
+      status: 206,
+      headers: {
+        ...headers,
+        'Content-Range': `bytes ${start}-${end}/${size}`,
+        'Content-Length': String(end - start + 1),
+      },
+    });
   });
 }
 
