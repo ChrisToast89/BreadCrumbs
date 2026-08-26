@@ -120,6 +120,8 @@ win:
   - '!node_modules/ffprobe-static/bin/darwin/**'
   - '!node_modules/ffprobe-static/bin/linux/**'
   - '!node_modules/ffprobe-static/bin/win32/ia32/**'
+  # One source image; electron-builder produces the .ico from it.
+  icon: build/icon.png
   target:
     # Two ways in, both of them a single file the user double-clicks.
     - target: nsis
@@ -186,6 +188,7 @@ mac:
 
   - '!node_modules/ffprobe-static/bin/win32/**'
   - '!node_modules/ffprobe-static/bin/linux/**'
+  icon: build/icon.png
   target:
     - target: dmg
       arch: [x64, arm64]
@@ -232,6 +235,7 @@ linux:
   - '!node_modules/ffprobe-static/bin/win32/**'
   - '!node_modules/ffprobe-static/bin/darwin/**'
   - '!node_modules/ffprobe-static/bin/linux/ia32/**'
+  icon: build/icon.png
   target:
     - target: AppImage
       arch: [x64]

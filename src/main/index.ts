@@ -322,6 +322,11 @@ function createWindow(): BrowserWindow {
     minHeight: 700,
     show: false,
     autoHideMenuBar: true,
+    // Packaged builds take the icon from the executable itself. This is for
+    // development, and for Linux, where the window carries its own.
+    ...(existsSync(join(__dirname, '../../build/icon.png'))
+      ? { icon: join(__dirname, '../../build/icon.png') }
+      : {}),
     backgroundColor: '#191c20',
     webPreferences: {
       preload: join(__dirname, '../preload/index.mjs'),
