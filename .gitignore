@@ -8,7 +8,9 @@ dist/
 dist-electron/
 out/
 release/
-build/
+# NOTE: `build/` is NOT ignored. electron-builder uses it for build
+# *resources* — the icon source art — which is a tracked input, not output.
+# Our actual outputs are out/ and release/, both ignored above.
 *.tsbuildinfo
 
 # electron-builder
