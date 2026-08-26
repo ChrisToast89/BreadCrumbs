@@ -1,7 +1,8 @@
 import { app, BrowserWindow, ipcMain, shell } from 'electron';
 import { fileURLToPath } from 'node:url';
-import { dirname, join } from 'node:path';
-import type { AppInfo, IpcChannel, IpcContract, Platform } from '../shared/types.js';
+import { basename, dirname, join } from 'node:path';
+import type { AppInfo, IpcChannel, IpcContract, IpcResult, Platform, VideoIndex } from '../shared/types.js';
+import { MediaError, indexVideo } from './media/indexVideo.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -18,6 +19,16 @@ function handle<C extends IpcChannel>(
 }
 
 function registerHandlers(): void {
+  handle('video:index', async ({ path }): Promise<IpcResult<VideoIndex>> => {
+    try {
+      return { ok: true, value: await indexVideo(path) };
+    } catch (cause) {
+      // SPEC §9 — name the file and the problem, never surface a stack trace.
+      const problem = cause instanceof MediaError ? cause.message : `${basename(path)}: ${String(cause)}`;
+      return { ok: false, problem };
+    }
+  });
+
   handle('app:info', (): AppInfo => ({
     name: 'BreadCrumbs',
     version: app.getVersion(),

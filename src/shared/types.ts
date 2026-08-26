@@ -115,7 +115,20 @@ export interface IpcContract {
     request: void;
     response: AppInfo;
   };
+  /** Phase 1 — read a source file and build its VideoIndex. */
+  'video:index': {
+    request: { path: string };
+    response: IpcResult<VideoIndex>;
+  };
 }
+
+/**
+ * Anything that can fail because of the user's file comes back as this rather
+ * than as a thrown error. SPEC §9 requires a readable cause naming the file and
+ * the problem — never a stack trace — and an envelope makes that the default
+ * path instead of something each caller has to remember to format.
+ */
+export type IpcResult<T> = { ok: true; value: T } | { ok: false; problem: string };
 
 /** The three platforms SPEC §1 targets. */
 export type Platform = 'win32' | 'darwin' | 'linux';
