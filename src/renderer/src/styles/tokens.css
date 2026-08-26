@@ -90,6 +90,9 @@
      point: it means "this will not be written". */
   --excluded: oklch(0.62 0.19 25);
   --excluded-ink: #ffffff;
+  /* Its counterpart: the shot will be written. Muted until hovered, so a
+     board of included shots stays calm rather than covered in ticks. */
+  --included: oklch(0.72 0.15 150);
 
   --hints-height: 22px;
   --osd-height: 30px;

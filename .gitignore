@@ -51,6 +51,9 @@ Thumbs.db
 desktop.ini
 
 # BreadCrumbs working data
+# Real-world clips, supplied locally. Never committed.
+samples/
+
 # Test media is large and supplied locally; keep the folder, not its contents.
 fixtures/*
 !fixtures/.gitkeep

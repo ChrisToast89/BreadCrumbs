@@ -63,12 +63,26 @@ function BoardCell({
       </div>
 
       <div className="cell__body">
-        {shot.rejected ? (
-          <span className="excluded-badge" title="Excluded from export (X to include again)">
-            <span aria-hidden="true">⊘</span>
-            <span className="visually-hidden">Excluded from export</span>
+        {/* One always-visible control per cell: a green tick when the shot
+            will be exported, a red no-entry when it will not. Clicking it
+            switches. Replaces the hover-only remove control, so the state is
+            readable without hunting for it. */}
+        <button
+          type="button"
+          className={`mark${shot.rejected ? ' mark--excluded' : ' mark--included'}`}
+          onClick={() => onReject(shot.id)}
+          aria-pressed={!shot.rejected}
+          title={
+            shot.rejected
+              ? 'Excluded from export — click to include (X)'
+              : 'Included in export — click to exclude (X)'
+          }
+        >
+          <span aria-hidden="true">{shot.rejected ? '⊘' : '✓'}</span>
+          <span className="visually-hidden">
+            {shot.rejected ? 'Excluded from export' : 'Included in export'}
           </span>
-        ) : null}
+        </button>
         {paired && a && b ? (
           <div className="pair">
             <span className="pair__badge">A/B</span>
@@ -105,19 +119,6 @@ function BoardCell({
         <div className="cell__meta">
           <span className="cell__tc">{timecodeOf(index, a?.frame ?? shot.startFrame)}</span>
           <span className={`cell__flag${flag === 'check' ? ' cell__flag--check' : ''}`}>{flag}</span>
-          <button
-            type="button"
-            className="cell__remove"
-            onClick={() => onReject(shot.id)}
-            aria-label={
-              shot.rejected
-                ? `Include shot ${position + 1} in the export`
-                : `Exclude shot ${position + 1} from the export`
-            }
-            title={shot.rejected ? 'Include in export (X)' : 'Exclude from export (X)'}
-          >
-            {shot.rejected ? '+' : '×'}
-          </button>
         </div>
       </div>
     </div>

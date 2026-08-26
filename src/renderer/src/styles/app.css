@@ -475,29 +475,7 @@ button {
   color: var(--attention);
 }
 
-/* Remove control, revealed on hover (SPEC §7). Rejecting keeps the shot in the
-   overview, desaturated — it takes it off the board, it does not delete it. */
-.cell__remove {
-  width: var(--remove-size);
-  height: var(--remove-size);
-  margin-left: var(--space-2);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--ink-dim);
-  font-size: var(--text-12);
-  line-height: 1;
-  opacity: 0;
-}
 
-.cell:hover .cell__remove,
-.cell__remove:focus-visible {
-  opacity: 1;
-}
-
-.cell__remove:hover {
-  color: var(--attention);
-}
 
 /* --- Preview ------------------------------------------------------------ */
 
@@ -840,7 +818,7 @@ button {
 /* --- Excluded shots ----------------------------------------------------- */
 
 /* Red appears nowhere else, so it reads as one thing only: not exported. */
-.excluded-badge {
+.mark {
   position: absolute;
   top: var(--space-1);
   left: var(--space-1);
@@ -850,10 +828,26 @@ button {
   justify-content: center;
   width: var(--remove-size);
   height: var(--remove-size);
-  background: var(--excluded);
   color: var(--excluded-ink);
   font-size: var(--text-11);
   line-height: 1;
+}
+
+.mark--included {
+  background: var(--included);
+  /* Quiet by default: a full-strength tick on every cell would shout at you
+     about the normal case. It comes up on hover and on focus. */
+  opacity: 0.4;
+}
+
+.cell:hover .mark--included,
+.mark--included:focus-visible,
+.cell--selected .mark--included {
+  opacity: 1;
+}
+
+.mark--excluded {
+  background: var(--excluded);
 }
 
 .cell__body {
