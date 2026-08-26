@@ -135,7 +135,6 @@ export function Board(): JSX.Element {
   const toggleReject = useStore((state) => state.toggleRejectSelected);
   const selectShot = useStore((state) => state.selectShot);
   const showExcluded = useStore((state) => state.showExcluded);
-  const toggleShowExcluded = useStore((state) => state.toggleShowExcluded);
 
   const scrollerRef = useRef<HTMLDivElement>(null);
 
@@ -161,7 +160,6 @@ export function Board(): JSX.Element {
   // will be exported. Turned on, excluded shots reappear dimmed and badged so
   // they can be found and put back.
   const visible = showExcluded ? shots : shots.filter((shot) => !shot.rejected);
-  const excludedCount = shots.filter((shot) => shot.rejected).length;
   const exportCount = picks.filter((pick) => {
     const shot = shots.find((candidate) => candidate.id === pick.shotId);
     return shot !== undefined && !shot.rejected;
@@ -171,16 +169,6 @@ export function Board(): JSX.Element {
     <section className="board" aria-label="Board">
       <header className="pane-label">
         <span>Board</span>
-        {excludedCount > 0 ? (
-          <button
-            type="button"
-            className={`pane-label__toggle${showExcluded ? ' pane-label__toggle--on' : ''}`}
-            onClick={toggleShowExcluded}
-            title={showExcluded ? 'Hide excluded shots' : 'Show excluded shots'}
-          >
-            {showExcluded ? 'hide excluded' : `${excludedCount} excluded`}
-          </button>
-        ) : null}
         <span className="pane-label__count">{exportCount}</span>
       </header>
       <div

@@ -878,25 +878,42 @@ button {
   white-space: nowrap;
 }
 
-.pane-label__toggle {
-  padding: 0 var(--space-2);
+/* A toggle, not an action: it sits in the top bar beside the buttons but
+   reads as a state you switch, and shows which state it is in. */
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
   border: var(--rule-frame);
   color: var(--ink-dim);
   font-family: var(--font-sans);
-  font-size: var(--text-9);
-  letter-spacing: var(--tracking-label);
+  font-size: var(--text-10);
+  letter-spacing: var(--tracking-button);
   text-transform: uppercase;
 }
 
-.pane-label__toggle:hover {
+.toggle::before {
+  content: '';
+  width: var(--space-3);
+  height: var(--space-3);
+  background: var(--excluded);
+  opacity: 0.5;
+}
+
+.toggle:hover {
   color: var(--ink-strong);
   border-color: var(--accent);
 }
 
-.pane-label__toggle--on {
-  color: var(--surface-chrome);
-  background: var(--accent);
+.toggle--on {
+  color: var(--ink-bright);
   border-color: var(--accent);
+  background: var(--accent-tint-row);
+}
+
+.toggle--on::before {
+  opacity: 1;
 }
 
 .readout__excluded {

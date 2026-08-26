@@ -26,10 +26,19 @@ function Header(): JSX.Element {
   const shots = useStore((state) => state.shots);
   const picks = useStore((state) => state.picks);
   const reset = useStore((state) => state.reset);
+  const showExcluded = useStore((state) => state.showExcluded);
+  const toggleShowExcluded = useStore((state) => state.toggleShowExcluded);
 
   if (!project) return <header className="header" />;
 
   const toCheck = shots.filter((shot, position) => position > 0 && shot.confidence < 0.5).length;
+  const excludedCount = shots.filter((shot) => shot.rejected).length;
+  // The board lists what will be exported, so its count is frames on included
+  // shots — not every pick that exists.
+  const exportCount = picks.filter((pick) => {
+    const shot = shots.find((candidate) => candidate.id === pick.shotId);
+    return shot !== undefined && !shot.rejected;
+  }).length;
 
   return (
     <header className="header">
@@ -42,9 +51,24 @@ function Header(): JSX.Element {
       {project.index.hdr ? <span className="header__badge">HDR</span> : null}
       <span className="header__spacer" />
       <span className="header__meta">
-        {shots.length} shots · {picks.length} frames
+        {shots.length} shots · {exportCount} frames
         {toCheck > 0 ? ` · ${toCheck} to check` : ''}
       </span>
+      {excludedCount > 0 ? (
+        <button
+          type="button"
+          className={`toggle${showExcluded ? ' toggle--on' : ''}`}
+          onClick={toggleShowExcluded}
+          aria-pressed={showExcluded}
+          title={
+            showExcluded
+              ? 'Hide excluded shots in the board'
+              : 'Show excluded shots in the board'
+          }
+        >
+          {excludedCount} excluded
+        </button>
+      ) : null}
       <button type="button" className="button" onClick={() => void reset()}>
         Choose another
       </button>
