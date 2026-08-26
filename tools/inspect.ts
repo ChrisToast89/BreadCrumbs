@@ -16,7 +16,8 @@
  *   proxy           phase 2    Proxy path, size, encode duration, frame-count
  *                              equality with the source
  *   metrics         phase 3    Min/max/mean per signal, plus a PNG plot
- *   detect          phase 4    Shot table, chosen frame per shot and why
+ *   detect          phase 4    Shot table, chosen frame per shot and why,
+ *                              plus a plot with the detected cuts marked
  *   export          phase 6/7  Dry run — the filenames that would be written
  *
  * Flags:
@@ -32,6 +33,10 @@ import { fileURLToPath } from 'node:url';
 import { indexVideo, MediaError } from '../src/main/media/indexVideo.js';
 import { buildProxy, projectDirFor, proxySize } from '../src/main/media/proxy.js';
 import { runPipeline, STEP_LABELS } from '../src/main/pipeline.js';
+import { chooseOutFrame, detectShots } from '../src/main/detect.js';
+import { DEFAULT_SETTINGS } from '../src/shared/settings.js';
+import { assertPickRules } from '../src/shared/picks.js';
+import type { Shot } from '../src/shared/types.js';
 import { plotSeries } from './png.js';
 import { FFPROBE_PATH } from '../src/main/media/binaries.js';
 import { run } from '../src/main/media/run.js';
@@ -488,8 +493,176 @@ const metricsReporter: Reporter = {
   },
 };
 
+/** Timecode from the PTS table — never from frame / fps. See I1. */
+function timecodeOf(index: { ptsList: Float64Array | number[]; fps: number }, frame: number): string {
+  const pts = Array.from(index.ptsList);
+  const seconds = (pts[Math.max(0, Math.min(pts.length - 1, frame))] as number) ?? 0;
+  const whole = Math.floor(seconds);
+  const hh = String(Math.floor(whole / 3600)).padStart(2, '0');
+  const mm = String(Math.floor((whole % 3600) / 60)).padStart(2, '0');
+  const ss = String(whole % 60).padStart(2, '0');
+  const ff = String(Math.round((seconds - whole) * (index.fps || 1))).padStart(2, '0');
+  return `${hh}:${mm}:${ss}:${ff}`;
+}
+
+const detectReporter: Reporter = {
+  name: 'detect',
+  phase: 4,
+  async run(file, options) {
+    const projectDir = await projectDirFor(join(projectRoot, 'inspect-out'), file);
+    const result = await runPipeline({
+      sourcePath: file,
+      projectDir,
+      ...(options.force ? { force: true } : {}),
+    });
+    const { index, metrics, detection, shots, picks } = result;
+
+    section('detection');
+    field('candidates', `${detection.candidatesBeforeCollapse} before collapse`);
+    field('shots', shots.length);
+    field('hard / soft', `${shots.filter((s) => s.boundary === 'hard').length} / ${shots.filter((s) => s.boundary === 'soft').length}`);
+    field('detect time', `${detection.elapsedMs}ms`);
+
+    // Re-detection must be instant — it reads cached metrics and touches no
+    // disk at all (SPEC §5). Timed over several runs so the number is not a
+    // single lucky sample.
+    const runs = 5;
+    const redetectStarted = Date.now();
+    for (let i = 0; i < runs; i += 1) detectShots(index, metrics, DEFAULT_SETTINGS);
+    const redetectMs = (Date.now() - redetectStarted) / runs;
+    field('re-detect', `${redetectMs.toFixed(1)}ms average over ${runs} runs`);
+
+    section('shots');
+    write('     #  start    end  frames  bound  conf   pick  timecode        B?  chose by');
+    shots.forEach((shot, position) => {
+      const choice = detection.choices.find((entry) => entry.shotId === shot.id);
+      const pick = picks.find((entry) => entry.shotId === shot.id && entry.role === 'A');
+      const frames = shot.endFrame - shot.startFrame + 1;
+      const offset = pick ? pick.frame - shot.startFrame : 0;
+      // Where an out-frame would land if the user asked for one. B is never
+      // created automatically in v1 (SPEC §6) — this is the default position.
+      const outFrame = pick ? chooseOutFrame(shot, pick.frame, metrics, DEFAULT_SETTINGS) : -1;
+      const skipped = (choice?.skippedForLuma ?? 0) + (choice?.skippedForSharpness ?? 0);
+      write(
+        `    ${String(position + 1).padStart(2)}  ` +
+          `${String(shot.startFrame).padStart(5)}  ${String(shot.endFrame).padStart(5)}  ` +
+          `${String(frames).padStart(6)}  ${shot.boundary.padEnd(5)}  ` +
+          `${shot.confidence.toFixed(2)}  ${String(pick?.frame ?? -1).padStart(5)}  ` +
+          `${timecodeOf(index, pick?.frame ?? 0)}  ${String(outFrame).padStart(5)}  ` +
+          `${choice?.reason ?? '?'} (+${offset}${skipped > 0 ? `, skipped ${skipped}` : ''})`,
+      );
+    });
+
+    // SPEC §6: the default out-frame must not be the literal last frame — those
+    // are so often blurred or already fading that the user would fix it every
+    // time — and it must never land on or before A (I8).
+    const outFrames = shots.map((shot) => {
+      const pick = picks.find((entry) => entry.shotId === shot.id && entry.role === 'A');
+      return pick ? { shot, a: pick.frame, b: chooseOutFrame(shot, pick.frame, metrics, DEFAULT_SETTINGS) } : null;
+    });
+    const roomy = outFrames.filter((entry) => entry !== null && entry.shot.endFrame - entry.a > 2);
+    const onLastFrame = roomy.filter((entry) => entry !== null && entry.b === entry.shot.endFrame).length;
+
+    section('detection checks');
+    checkLine('at least one shot', shots.length >= 1, `${shots.length}`);
+
+    // Shots must tile the clip exactly: contiguous, non-overlapping, covering
+    // every frame from 0 to the last.
+    let contiguous = shots[0]?.startFrame === 0;
+    for (let i = 1; i < shots.length; i += 1) {
+      if ((shots[i] as Shot).startFrame !== (shots[i - 1] as Shot).endFrame + 1) contiguous = false;
+    }
+    const coversEnd = shots[shots.length - 1]?.endFrame === index.frameCount - 1;
+    checkLine('shots tile the clip exactly', contiguous && coversEnd, contiguous && coversEnd ? 'no gaps or overlaps' : 'gap, overlap or short coverage');
+
+    checkLine(
+      'every shot has exactly one A',
+      shots.every((shot) => picks.filter((pick) => pick.shotId === shot.id && pick.role === 'A').length === 1),
+      `${picks.filter((pick) => pick.role === 'A').length} A picks for ${shots.length} shots`,
+    );
+
+    checkLine(
+      'every pick sits inside its shot',
+      picks.every((pick) => {
+        const shot = shots.find((candidate) => candidate.id === pick.shotId);
+        return shot !== undefined && pick.frame >= shot.startFrame && pick.frame <= shot.endFrame;
+      }),
+      'no pick outside its shot range',
+    );
+
+    // I8, checked at the data layer rather than the UI.
+    let pickRules = 'ok';
+    try {
+      assertPickRules(picks, shots);
+    } catch (cause) {
+      pickRules = cause instanceof Error ? cause.message : String(cause);
+    }
+    checkLine('pick rules hold (I8)', pickRules === 'ok', pickRules);
+
+    checkLine(
+      'default B never on or before A (I8)',
+      outFrames.every((entry) => entry === null || entry.b > entry.a || entry.a >= entry.shot.endFrame),
+      'every out-frame lands after its A',
+    );
+    checkLine(
+      'default B backs off the last frame',
+      onLastFrame === 0,
+      `${onLastFrame} of ${roomy.length} shots with room landed on the final frame`,
+    );
+
+    // I6 — any frame the user has touched is pinned and survives re-detection.
+    // Simulated here by moving a pick, pinning it, and re-running detection.
+    const firstA = picks.find((pick) => pick.role === 'A');
+    if (firstA) {
+      const hostShot = shots.find((shot) => shot.id === firstA.shotId) as Shot;
+      const movedFrame = Math.min(hostShot.endFrame, firstA.frame + 3);
+      const edited = picks.map((pick) =>
+        pick.id === firstA.id ? { ...pick, frame: movedFrame, pinned: true } : pick,
+      );
+
+      const again = detectShots(index, metrics, DEFAULT_SETTINGS, edited);
+      const survivor = again.picks.find(
+        (pick) => pick.role === 'A' && pick.frame === movedFrame && pick.pinned,
+      );
+      checkLine(
+        'pinned pick survives re-detection (I6)',
+        survivor !== undefined,
+        survivor ? `frame ${movedFrame} kept` : `frame ${movedFrame} was overwritten`,
+      );
+
+      // And an untouched pick must be free to move when detection changes.
+      checkLine(
+        'unpinned picks stay unpinned',
+        again.picks.filter((pick) => pick.pinned).length === 1,
+        `${again.picks.filter((pick) => pick.pinned).length} pinned of ${again.picks.length}`,
+      );
+    }
+
+    checkLine('re-detect under 100ms', redetectMs < 100, `${redetectMs.toFixed(1)}ms`);
+
+    // The plot again, this time with the detected cuts marked, so a spike with
+    // no marker (or a marker with no spike) is obvious.
+    const plotPath = join(projectDir, 'detection.png');
+    plotSeries(
+      plotPath,
+      [
+        { label: 'histogram', values: metrics.histogram, colour: [255, 170, 80], max: Math.max(0.1, summarise(metrics.histogram).max) },
+        { label: 'adaptive bar', values: detection.adaptiveThreshold, colour: [255, 90, 90], max: Math.max(0.1, summarise(metrics.histogram).max) },
+        { label: 'scene', values: metrics.scene, colour: [180, 130, 255], max: 1 },
+        { label: 'motion', values: metrics.motion, colour: [90, 200, 255], max: Math.max(0.05, summarise(metrics.motion).max) },
+      ],
+      {
+        width: Math.min(1400, Math.max(600, index.frameCount)),
+        laneHeight: 90,
+        marks: shots.slice(1).map((shot) => shot.startFrame),
+      },
+    );
+    field('plot', plotPath);
+  },
+};
+
 /** Phases add their reporters here, in pipeline order. */
-const reporters: Reporter[] = [fileReporter, indexReporter, proxyReporter, metricsReporter];
+const reporters: Reporter[] = [fileReporter, indexReporter, proxyReporter, metricsReporter, detectReporter];
 
 // --- fixture discovery -----------------------------------------------------
 

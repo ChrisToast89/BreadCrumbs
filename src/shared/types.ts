@@ -1,3 +1,5 @@
+import type { Settings } from './settings.js';
+
 /**
  * BreadCrumbs — shared type surface.
  *
@@ -82,13 +84,10 @@ export interface Pick {
 
 /**
  * SPEC §4 lists `settings: Settings` on Project but never defines the shape.
- * Deliberately left empty until the field set is confirmed; phase 4 needs
- * `minShotFrames` (SPEC §6) and phase 7 needs the export fields (SPEC §8).
- * TODO(phase 4): replace with the confirmed definition.
+ * It is defined in `settings.ts`, where every value is marked as either stated
+ * by the spec or chosen here.
  */
-export interface Settings {
-  [key: string]: never;
-}
+export type { Settings };
 
 export interface Project {
   version: 1;

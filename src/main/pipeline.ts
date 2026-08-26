@@ -15,7 +15,9 @@
  * single number.
  */
 
-import type { FrameMetrics, VideoIndex } from '../shared/types.js';
+import type { FrameMetrics, Pick, Shot, VideoIndex } from '../shared/types.js';
+import { DEFAULT_SETTINGS, type Settings } from '../shared/settings.js';
+import { detectShots, type DetectionResult } from './detect.js';
 import { indexVideo } from './media/indexVideo.js';
 import { buildProxy, type ProxyResult } from './media/proxy.js';
 import { analyze, type AnalyzeResult } from './media/analyze.js';
@@ -56,6 +58,9 @@ export interface PipelineResult {
   proxy: ProxyResult;
   metrics: FrameMetrics;
   analysis: AnalyzeResult;
+  shots: Shot[];
+  picks: Pick[];
+  detection: DetectionResult;
   elapsedMs: number;
 }
 
@@ -64,6 +69,7 @@ export interface RunPipelineOptions {
   projectDir: string;
   onProgress?: (progress: PipelineProgress) => void;
   force?: boolean;
+  settings?: Settings;
 }
 
 /** Progress accumulated from the steps already finished. */
@@ -127,9 +133,8 @@ export async function runPipeline(options: RunPipelineOptions): Promise<Pipeline
   });
   finish('analyze');
 
-  // Detection arrives in phase 4. Its slice of the bar is reserved here so the
-  // weighting does not shift when it lands.
   begin('detect');
+  const detection = detectShots(index, analysis.metrics, options.settings ?? DEFAULT_SETTINGS);
   finish('detect');
 
   return {
@@ -137,6 +142,9 @@ export async function runPipeline(options: RunPipelineOptions): Promise<Pipeline
     proxy,
     metrics: analysis.metrics,
     analysis,
+    shots: detection.shots,
+    picks: detection.picks,
+    detection,
     elapsedMs: Date.now() - started,
   };
 }
