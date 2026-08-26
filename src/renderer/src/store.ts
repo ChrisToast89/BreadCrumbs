@@ -56,6 +56,9 @@ interface State {
   screen: Screen;
   problem: string | null;
 
+  /** Application version, as reported by the main process. */
+  version: string | null;
+
   progress: PipelineProgressEvent | null;
 
   project: AnalyzedProject | null;
@@ -82,6 +85,7 @@ interface State {
    */
   showExcluded: boolean;
 
+  loadVersion: () => Promise<void>;
   choose: () => Promise<void>;
   analyze: (path: string) => Promise<void>;
   reset: () => void;
@@ -132,6 +136,7 @@ export function orderedPicks(shots: readonly Shot[], picks: readonly Pick[]): Pi
 export const useStore = create<State>((set, get) => ({
   screen: 'intake',
   problem: null,
+  version: null,
   progress: null,
   project: null,
   shots: [],
@@ -141,6 +146,11 @@ export const useStore = create<State>((set, get) => ({
   selectedPickId: null,
   scrubFrame: null,
   showExcluded: false,
+
+  loadVersion: async () => {
+    const info = await window.breadcrumbs.invoke('app:info', undefined);
+    set({ version: info.version });
+  },
 
   choose: async () => {
     const path = await window.breadcrumbs.invoke('project:choose', undefined);

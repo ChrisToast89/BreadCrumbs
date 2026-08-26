@@ -1,6 +1,6 @@
 {
   "name": "breadcrumbs",
-  "version": "0.1.0",
+  "version": "0.90.0-beta",
   "description": "Splits a short video at its camera cuts, proposes one still per shot, and exports the set as image files.",
   "main": "./out/main/index.js",
   "author": "ChrisToast89",

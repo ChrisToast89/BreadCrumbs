@@ -12,6 +12,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { picksForShot } from '../../../shared/picks.js';
 import { useStore } from '../store.js';
 import { durationTimecode } from '../timecode.js';
+import { displayVersion, isPrerelease } from '../version.js';
 import { Board } from './Board.js';
 import { Preview } from './Preview.js';
 import { Timeline } from './Timeline.js';
@@ -29,6 +30,7 @@ function Header({ onExport }: { onExport: () => void }): JSX.Element {
   const reset = useStore((state) => state.reset);
   const showExcluded = useStore((state) => state.showExcluded);
   const toggleShowExcluded = useStore((state) => state.toggleShowExcluded);
+  const version = useStore((state) => state.version);
 
   if (!project) return <header className="header" />;
 
@@ -43,6 +45,14 @@ function Header({ onExport }: { onExport: () => void }): JSX.Element {
 
   return (
     <header className="header">
+      {version ? (
+        <span
+          className={`version version--compact${isPrerelease(version) ? ' version--beta' : ''}`}
+          title={isPrerelease(version) ? `BreadCrumbs ${version} — public beta` : `BreadCrumbs ${version}`}
+        >
+          {displayVersion(version)}
+        </span>
+      ) : null}
       <span className="header__name">{project.sourceName}</span>
       <span className="header__meta">
         {durationTimecode(project.index)} · {project.index.fps.toFixed(2)} fps ·{' '}

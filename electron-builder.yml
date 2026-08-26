@@ -144,6 +144,8 @@ nsis:
   # Still registered in Add or Remove Programs, so it can be removed normally.
   deleteAppDataOnUninstall: false
 
+# Filenames carry the real semver, which is unambiguous for a downloaded file.
+# The interface shows the friendlier 0.90b.
 portable:
   artifactName: BreadCrumbs-${version}-portable.${ext}
 

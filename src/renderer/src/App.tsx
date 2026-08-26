@@ -11,8 +11,10 @@ import { Workspace } from './components/Workspace.js';
 export function App(): JSX.Element {
   const screen = useStore((state) => state.screen);
   const analyze = useStore((state) => state.analyze);
+  const loadVersion = useStore((state) => state.loadVersion);
 
   useEffect(() => attachProgressListener(), []);
+  useEffect(() => void loadVersion(), [loadVersion]);
 
   // Development only: load a clip named by BREADCRUMBS_OPEN so the interface
   // can be exercised without clicking through a native file dialog.

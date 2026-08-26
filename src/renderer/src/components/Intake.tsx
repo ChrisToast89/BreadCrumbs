@@ -13,6 +13,7 @@
 
 import { useCallback, useState, type DragEvent } from 'react';
 import { STEP_LABELS, STEP_ORDER, stepStateOf, useStore } from '../store.js';
+import { displayVersion, isPrerelease } from '../version.js';
 
 /** What each step is actually doing, in the user's terms. */
 const STEP_DETAIL: Record<string, string> = {
@@ -29,6 +30,7 @@ export function Intake(): JSX.Element {
   const choose = useStore((state) => state.choose);
   const analyze = useStore((state) => state.analyze);
   const reset = useStore((state) => state.reset);
+  const version = useStore((state) => state.version);
 
   const [dragging, setDragging] = useState(false);
   const running = screen === 'analyzing';
@@ -51,7 +53,15 @@ export function Intake(): JSX.Element {
   return (
     <div className="intake">
       <div className="intake__inner">
-        <h1 className="intake__title">BreadCrumbs</h1>
+        <div className="intake__heading">
+          <h1 className="intake__title">BreadCrumbs</h1>
+          {version ? (
+            <span className="version">
+              {displayVersion(version)}
+              {isPrerelease(version) ? <span className="version__tag">public beta</span> : null}
+            </span>
+          ) : null}
+        </div>
         <p className="intake__lede">
           BreadCrumbs splits a video at its cuts and picks one still from each shot. Adjust anything
           it gets wrong, then export the set as image files.

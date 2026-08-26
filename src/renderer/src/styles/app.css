@@ -1359,3 +1359,43 @@ button {
 .export__foot .progress {
   width: 220px;
 }
+
+
+/* --- Version and beta marker -------------------------------------------- */
+
+.intake__heading {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-6);
+  flex-wrap: wrap;
+}
+
+.version {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-family: var(--font-mono);
+  font-size: var(--text-11);
+  color: var(--ink-faint);
+}
+
+/* The beta label is stated plainly rather than dressed up. People finding
+   rough edges should already know they are using a beta. */
+.version__tag {
+  padding: 0 var(--space-2);
+  border: var(--rule-frame);
+  color: var(--attention);
+  font-family: var(--font-sans);
+  font-size: var(--text-9);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+}
+
+.version--compact {
+  font-size: var(--text-10);
+  color: var(--ink-dimmest);
+}
+
+.version--beta {
+  color: var(--attention);
+}
