@@ -54,18 +54,31 @@ win:
     - '!node_modules/ffprobe-static/bin/linux/**'
     - '!node_modules/ffprobe-static/bin/win32/ia32/**'
   target:
+    # Two ways in, both of them a single file the user double-clicks.
     - target: nsis
       arch: [x64]
-    - target: zip
+    # `portable` produces ONE self-contained executable. The `zip` target was
+    # dropped: it unpacked 97 files into whatever folder the user happened to
+    # be in, with BreadCrumbs.exe buried among the DLLs. Nobody should have to
+    # hunt for the thing they just downloaded.
+    - target: portable
       arch: [x64]
 
 nsis:
-  oneClick: false
+  # Installs without asking anything: download, double-click, it appears and
+  # opens. The audience is people who want to cut up a video, not choose an
+  # install directory.
+  oneClick: true
   perMachine: false
-  allowToChangeInstallationDirectory: true
+  runAfterFinish: true
   createDesktopShortcut: true
   createStartMenuShortcut: true
   shortcutName: BreadCrumbs
+  # Still registered in Add or Remove Programs, so it can be removed normally.
+  deleteAppDataOnUninstall: false
+
+portable:
+  artifactName: BreadCrumbs-${version}-portable.${ext}
 
 mac:
   files:
