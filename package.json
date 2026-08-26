@@ -4,7 +4,7 @@
   "description": "Splits a short video at its camera cuts and exports one still per shot.",
   "main": "./out/main/index.js",
   "author": "ChrisToast89",
-  "license": "UNLICENSED",
+  "license": "Apache-2.0",
   "private": true,
   "type": "module",
   "scripts": {
