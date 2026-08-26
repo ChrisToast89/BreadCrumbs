@@ -15,6 +15,7 @@ import { durationTimecode } from '../timecode.js';
 import { Board } from './Board.js';
 import { Preview } from './Preview.js';
 import { Timeline } from './Timeline.js';
+import { HintBar } from './HintBar.js';
 
 /** Bounds for the draggable split, so neither pane can be dragged away. */
 const MIN_TIMELINE = 150;
@@ -217,6 +218,7 @@ export function Workspace(): JSX.Element {
           </div>
         </div>
       </div>
+      <HintBar />
     </div>
   );
 }

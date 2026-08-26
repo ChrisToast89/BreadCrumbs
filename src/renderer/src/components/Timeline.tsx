@@ -13,6 +13,7 @@
  * The shot row itself, with its draggable carrots and zoom, is its own module.
  */
 
+import { useCallback, useEffect, useRef } from 'react';
 import { picksForShot } from '../../../shared/picks.js';
 import { useStore } from '../store.js';
 import { shortTimecodeOf, timecodeOf } from '../timecode.js';
@@ -23,9 +24,52 @@ function Overview(): JSX.Element {
   const shots = useStore((state) => state.shots);
   const picks = useStore((state) => state.picks);
   const selectedShotId = useStore((state) => state.selectedShotId);
+  const selectedPickId = useStore((state) => state.selectedPickId);
   const selectShot = useStore((state) => state.selectShot);
+  const scrubFrame = useStore((state) => state.scrubFrame);
+  const setScrubFrame = useStore((state) => state.setScrubFrame);
+
+  const trackRef = useRef<HTMLDivElement>(null);
+  const scrubbing = useRef(false);
+  const frameCount = project?.index.frameCount ?? 0;
+
+  /** Which frame a client x position falls on, across the whole clip. */
+  const frameAtX = useCallback(
+    (clientX: number): number => {
+      const track = trackRef.current;
+      if (!track || frameCount === 0) return 0;
+      const box = track.getBoundingClientRect();
+      const ratio = (clientX - box.left) / Math.max(1, box.width);
+      return Math.max(0, Math.min(frameCount - 1, Math.round(ratio * (frameCount - 1))));
+    },
+    [frameCount],
+  );
+
+  // Scrubbing the whole clip. SPEC §7 keeps this row zoom-free and pan-free —
+  // dragging here moves a playhead, it does not reshape the row.
+  useEffect(() => {
+    const onMove = (event: PointerEvent): void => {
+      if (!scrubbing.current) return;
+      setScrubFrame(frameAtX(event.clientX));
+    };
+    const onUp = (): void => {
+      scrubbing.current = false;
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    return () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+    };
+  }, [frameAtX, setScrubFrame]);
 
   if (!project) return <div className="overview" />;
+
+  // The playhead sits at whatever is being previewed: the scrub if there is
+  // one, otherwise the selected frame.
+  const selectedFrame = picks.find((pick) => pick.id === selectedPickId)?.frame ?? 0;
+  const playheadFrame = scrubFrame ?? selectedFrame;
+  const playheadPercent = (playheadFrame / Math.max(1, frameCount - 1)) * 100;
 
   const total = project.index.frameCount;
 
@@ -47,7 +91,19 @@ function Overview(): JSX.Element {
         ))}
       </div>
 
-      <div className="overview" role="list" aria-label="Whole clip">
+      <div
+        className="overview"
+        role="list"
+        aria-label="Whole clip"
+        ref={trackRef}
+        onPointerDown={(event) => {
+          // Dragging anywhere on the row scrubs; a plain click still selects
+          // the shot underneath, handled by the block below.
+          if (event.button !== 0) return;
+          scrubbing.current = true;
+          setScrubFrame(frameAtX(event.clientX));
+        }}
+      >
         {shots.map((shot, position) => {
           const width = ((shot.endFrame - shot.startFrame + 1) / total) * 100;
           const paired = picksForShot(picks, shot.id).length > 1;
@@ -77,6 +133,14 @@ function Overview(): JSX.Element {
             </button>
           );
         })}
+
+        <span
+          className="playhead"
+          style={{ left: `${playheadPercent}%` }}
+          aria-hidden="true"
+        >
+          <span className="playhead__head" />
+        </span>
       </div>
     </>
   );

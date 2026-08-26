@@ -53,7 +53,7 @@ function BoardCell({
 
   return (
     <div
-      className={`cell${selected ? ' cell--selected' : ''}`}
+      className={`cell${selected ? ' cell--selected' : ''}${shot.rejected ? ' cell--excluded' : ''}`}
       data-shot={shot.id}
       role="listitem"
     >
@@ -63,6 +63,12 @@ function BoardCell({
       </div>
 
       <div className="cell__body">
+        {shot.rejected ? (
+          <span className="excluded-badge" title="Excluded from export (X to include again)">
+            <span aria-hidden="true">⊘</span>
+            <span className="visually-hidden">Excluded from export</span>
+          </span>
+        ) : null}
         {paired && a && b ? (
           <div className="pair">
             <span className="pair__badge">A/B</span>
@@ -103,10 +109,14 @@ function BoardCell({
             type="button"
             className="cell__remove"
             onClick={() => onReject(shot.id)}
-            aria-label={`Remove shot ${position + 1} from the board`}
-            title="Remove from the board (X)"
+            aria-label={
+              shot.rejected
+                ? `Include shot ${position + 1} in the export`
+                : `Exclude shot ${position + 1} from the export`
+            }
+            title={shot.rejected ? 'Include in export (X)' : 'Exclude from export (X)'}
           >
-            ×
+            {shot.rejected ? '+' : '×'}
           </button>
         </div>
       </div>
@@ -124,6 +134,8 @@ export function Board(): JSX.Element {
   const selectPick = useStore((state) => state.selectPick);
   const toggleReject = useStore((state) => state.toggleRejectSelected);
   const selectShot = useStore((state) => state.selectShot);
+  const showExcluded = useStore((state) => state.showExcluded);
+  const toggleShowExcluded = useStore((state) => state.toggleShowExcluded);
 
   const scrollerRef = useRef<HTMLDivElement>(null);
 
@@ -145,13 +157,31 @@ export function Board(): JSX.Element {
 
   if (!project || !thumbnails) return <div className="board" />;
 
-  const visible = shots.filter((shot) => !shot.rejected);
+  // Off by default, which is SPEC §7's behaviour: the board lists exactly what
+  // will be exported. Turned on, excluded shots reappear dimmed and badged so
+  // they can be found and put back.
+  const visible = showExcluded ? shots : shots.filter((shot) => !shot.rejected);
+  const excludedCount = shots.filter((shot) => shot.rejected).length;
+  const exportCount = picks.filter((pick) => {
+    const shot = shots.find((candidate) => candidate.id === pick.shotId);
+    return shot !== undefined && !shot.rejected;
+  }).length;
 
   return (
     <section className="board" aria-label="Board">
       <header className="pane-label">
         <span>Board</span>
-        <span className="pane-label__count">{picks.length}</span>
+        {excludedCount > 0 ? (
+          <button
+            type="button"
+            className={`pane-label__toggle${showExcluded ? ' pane-label__toggle--on' : ''}`}
+            onClick={toggleShowExcluded}
+            title={showExcluded ? 'Hide excluded shots' : 'Show excluded shots'}
+          >
+            {showExcluded ? 'hide excluded' : `${excludedCount} excluded`}
+          </button>
+        ) : null}
+        <span className="pane-label__count">{exportCount}</span>
       </header>
       <div
         className="board__scroller"

@@ -86,6 +86,15 @@
     transparent 1px 5px
   );
 
+  /* Excluded shots. Red is used nowhere else in this design, which is the
+     point: it means "this will not be written". */
+  --excluded: oklch(0.62 0.19 25);
+  --excluded-ink: #ffffff;
+
+  --hints-height: 22px;
+  --osd-height: 30px;
+  --playhead: #e6ebf0;
+
   /* -- Editing affordances ---------------------------------------------- */
   --carrot-width: 12px;
   --carrot-height: 8px;

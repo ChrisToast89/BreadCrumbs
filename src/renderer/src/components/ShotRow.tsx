@@ -11,9 +11,18 @@
  * the partner simply stops.
  */
 
-import { useCallback, useEffect, useRef, useState, type CSSProperties, type PointerEvent, type WheelEvent } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type PointerEvent,
+  type WheelEvent,
+} from 'react';
 import type { Pick, Shot } from '../../../shared/types.js';
 import { useStore } from '../store.js';
+import { ContextMenu, type MenuItem } from './ContextMenu.js';
 
 /** Zoom limits, as a multiplier on the design's frame cell width. */
 const MIN_ZOOM = 0.35;
@@ -31,6 +40,10 @@ export function ShotRow({ shot, mine }: Props): JSX.Element {
   const selectPick = useStore((state) => state.selectPick);
   const movePick = useStore((state) => state.movePick);
   const addOutFrameAt = useStore((state) => state.addOutFrameAt);
+  const removeOutFrame = useStore((state) => state.removeOutFrame);
+
+  /** Open right-click menu, positioned at the cursor. */
+  const [menu, setMenu] = useState<{ x: number; y: number; frame: number } | null>(null);
 
   const scrollerRef = useRef<HTMLDivElement>(null);
   const [zoom, setZoom] = useState(1);
@@ -44,6 +57,35 @@ export function ShotRow({ shot, mine }: Props): JSX.Element {
   const b = mine.find((pick) => pick.role === 'B');
 
   const cellWidth = 46 * zoom;
+
+  /** What right-clicking a frame offers. */
+  const menuItems = (frame: number): MenuItem[] => {
+    const canBeOut = a !== undefined && frame > a.frame;
+    return [
+      {
+        label: 'Set as in frame (A)',
+        hint: b !== undefined && frame >= b.frame ? 'must be before B' : undefined,
+        disabled: a === undefined || (b !== undefined && frame >= b.frame),
+        onSelect: () => {
+          if (a) movePick(a.id, frame);
+        },
+      },
+      {
+        label: b === undefined ? 'Set as out frame (B)' : 'Move out frame (B) here',
+        hint: canBeOut ? undefined : 'must be after A',
+        disabled: !canBeOut,
+        onSelect: () => {
+          if (b) movePick(b.id, frame);
+          else addOutFrameAt(frame);
+        },
+      },
+      {
+        label: 'Remove out frame',
+        disabled: b === undefined,
+        onSelect: () => removeOutFrame(),
+      },
+    ];
+  };
   const frameCount = shot.endFrame - shot.startFrame + 1;
 
   /** Which frame sits under a client x position. */
@@ -181,6 +223,11 @@ export function ShotRow({ shot, mine }: Props): JSX.Element {
                 dragging.current = { pickId: pickHere.id, pointerId: event.pointerId };
                 selectPick(pickHere.id);
               }}
+              onContextMenu={(event) => {
+                event.preventDefault();
+                selectPick(pickHere?.id ?? a?.id ?? '');
+                setMenu({ x: event.clientX, y: event.clientY, frame });
+              }}
               aria-label={`Frame ${frame}${isA ? ', frame A' : ''}${isB ? ', frame B' : ''}`}
             >
               <img className="frame__image" src={thumbnails.urls[frame]} alt="" draggable={false} />
@@ -193,6 +240,10 @@ export function ShotRow({ shot, mine }: Props): JSX.Element {
           );
         })}
       </div>
+
+      {menu ? (
+        <ContextMenu x={menu.x} y={menu.y} items={menuItems(menu.frame)} onClose={() => setMenu(null)} />
+      ) : null}
     </div>
   );
 }

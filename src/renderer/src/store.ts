@@ -68,12 +68,28 @@ interface State {
   /** The pick being previewed. A shot stays selected whichever half is chosen. */
   selectedPickId: string | null;
 
+  /**
+   * A frame being scrubbed to on the overview, independent of any pick. While
+   * set, the preview shows this frame instead of the selected pick's. Cleared
+   * as soon as the selection moves, so scrubbing is a look, not an edit.
+   */
+  scrubFrame: number | null;
+
+  /**
+   * Whether the board also lists excluded shots. Off by default, which is
+   * SPEC §7's behaviour — the board is the answer to "what am I exporting?",
+   * so what it lists is exactly what will be written.
+   */
+  showExcluded: boolean;
+
   choose: () => Promise<void>;
   analyze: (path: string) => Promise<void>;
   reset: () => void;
 
   selectShot: (shotId: string) => void;
   selectPick: (pickId: string) => void;
+  setScrubFrame: (frame: number | null) => void;
+  toggleShowExcluded: () => void;
   /** Step through every pick on the board in order, A and B alike (SPEC §7). */
   stepPick: (delta: number) => void;
 
@@ -123,6 +139,8 @@ export const useStore = create<State>((set, get) => ({
   thumbnails: null,
   selectedShotId: null,
   selectedPickId: null,
+  scrubFrame: null,
+  showExcluded: false,
 
   choose: async () => {
     const path = await window.breadcrumbs.invoke('project:choose', undefined);
@@ -149,6 +167,7 @@ export const useStore = create<State>((set, get) => ({
       thumbnails: null,
       selectedShotId: null,
       selectedPickId: null,
+      scrubFrame: null,
     });
 
     const result = await window.breadcrumbs.invoke('project:analyze', { path });
@@ -181,6 +200,7 @@ export const useStore = create<State>((set, get) => ({
       thumbnails: { urls, width: project.thumbnails.width, height: project.thumbnails.height },
       selectedShotId: firstShot?.id ?? null,
       selectedPickId: firstPick?.id ?? null,
+      scrubFrame: null,
       progress: null,
     });
   },
@@ -198,13 +218,14 @@ export const useStore = create<State>((set, get) => ({
       thumbnails: null,
       selectedShotId: null,
       selectedPickId: null,
+      scrubFrame: null,
     });
   },
 
   selectShot: (shotId: string) => {
     const { picks } = get();
     const first = picksForShot(picks, shotId)[0];
-    set({ selectedShotId: shotId, selectedPickId: first?.id ?? null });
+    set({ selectedShotId: shotId, selectedPickId: first?.id ?? null, scrubFrame: null });
   },
 
   selectPick: (pickId: string) => {
@@ -212,7 +233,7 @@ export const useStore = create<State>((set, get) => ({
     if (!pick) return;
     // Clicking either half of a pair selects that frame; the shot stays
     // selected in the timeline either way (SPEC §7).
-    set({ selectedPickId: pick.id, selectedShotId: pick.shotId });
+    set({ selectedPickId: pick.id, selectedShotId: pick.shotId, scrubFrame: null });
   },
 
   movePick: (pickId, frame) => applyEdit(set, get, (board) => movePickTo(board, pickId, frame)),
@@ -282,8 +303,12 @@ export const useStore = create<State>((set, get) => ({
 
     const current = order.findIndex((pick) => pick.id === selectedPickId);
     const next = order[Math.max(0, Math.min(order.length - 1, (current < 0 ? 0 : current) + delta))];
-    if (next) set({ selectedPickId: next.id, selectedShotId: next.shotId });
+    if (next) set({ selectedPickId: next.id, selectedShotId: next.shotId, scrubFrame: null });
   },
+
+  setScrubFrame: (frame) => set({ scrubFrame: frame }),
+
+  toggleShowExcluded: () => set({ showExcluded: !get().showExcluded }),
 }));
 
 /**
