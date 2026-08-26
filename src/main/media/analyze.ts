@@ -288,14 +288,35 @@ function runMetricsPass(options: AnalyzeOptions): Promise<MetricsPassResult> {
       stderr += chunk.toString();
     });
 
-    child.on('error', reject);
-    child.on('close', (code) => {
-      if (code === 0) {
+    // The process can report exit before its piped output has been drained,
+    // and any frames still sitting in the pipe simply vanish — which showed up
+    // as analysis seeing 79 frames of a 180-frame clip, but only under
+    // Electron, where the event loop is busier than in the CLI. Settle only
+    // once BOTH the stream has ended and the process has exited.
+    let streamEnded = false;
+    let exitCode: number | null = null;
+
+    const settle = (): void => {
+      if (!streamEnded || exitCode === null) return;
+      if (exitCode === 0) {
         resolve({ accumulator, log: stderr });
         return;
       }
       const detail = stderr.trim().split('\n').slice(-3).join(' ');
-      reject(new MediaError(proxyPath, `the clip could not be analysed — ${detail || `ffmpeg exit ${code}`}`));
+      reject(
+        new MediaError(proxyPath, `the clip could not be analysed — ${detail || `ffmpeg exit ${exitCode}`}`),
+      );
+    };
+
+    child.stdout.on('end', () => {
+      streamEnded = true;
+      settle();
+    });
+
+    child.on('error', reject);
+    child.on('close', (code) => {
+      exitCode = code ?? -1;
+      settle();
     });
   });
 }
@@ -375,16 +396,31 @@ function runThumbnailPass(options: AnalyzeOptions): Promise<Buffer[]> {
       stderr += chunk.toString();
     });
 
-    child.on('error', reject);
-    child.on('close', (code) => {
-      if (code === 0) {
+    // Same drain race as the metrics pass.
+    let streamEnded = false;
+    let exitCode: number | null = null;
+
+    const settle = (): void => {
+      if (!streamEnded || exitCode === null) return;
+      if (exitCode === 0) {
         resolve(thumbnails);
         return;
       }
       const detail = stderr.trim().split('\n').slice(-3).join(' ');
       reject(
-        new MediaError(proxyPath, `thumbnails could not be built — ${detail || `ffmpeg exit ${code}`}`),
+        new MediaError(proxyPath, `thumbnails could not be built — ${detail || `ffmpeg exit ${exitCode}`}`),
       );
+    };
+
+    child.stdout.on('end', () => {
+      streamEnded = true;
+      settle();
+    });
+
+    child.on('error', reject);
+    child.on('close', (code) => {
+      exitCode = code ?? -1;
+      settle();
     });
   });
 }

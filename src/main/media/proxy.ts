@@ -19,7 +19,7 @@
  */
 
 import { createHash } from 'node:crypto';
-import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import { spawn } from 'node:child_process';
@@ -234,19 +234,37 @@ export async function buildProxy(options: BuildProxyOptions): Promise<ProxyResul
     }
   }
 
-  await encode(source, proxyPath, index, options);
+  // Encode to a temporary name and rename into place only once the frame count
+  // checks out. A crash, a kill, or a disk filling up then leaves no file at
+  // all rather than a truncated one — whose container header would still read
+  // correctly and pass the count check on the next run.
+  // Keeps the .mp4 extension: ffmpeg picks the muxer from it, and would refuse
+  // to write to a name it cannot recognise a format from.
+  const pendingPath = join(projectDir, `proxy.pending-${process.pid}.mp4`);
+  await rm(pendingPath, { force: true });
 
-  const frameCount = await countProxyFrames(proxyPath);
+  try {
+    await encode(source, pendingPath, index, options);
+  } catch (cause) {
+    await rm(pendingPath, { force: true });
+    throw cause;
+  }
+
+  const frameCount = await countProxyFrames(pendingPath);
 
   // I2 — if this does not hold, everything downstream points at the wrong
   // frames. Fail loudly here rather than exporting the wrong stills later.
   if (frameCount !== index.frameCount) {
+    await rm(pendingPath, { force: true });
     throw new MediaError(
       source,
       `the preview copy has ${frameCount} frames but the original has ${index.frameCount}. ` +
         'Frame numbers would not line up, so analysis has been stopped.',
     );
   }
+
+  await rm(proxyPath, { force: true });
+  await rename(pendingPath, proxyPath);
 
   const sidecar: ProxySidecar = {
     version: 1,

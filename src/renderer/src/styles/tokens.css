@@ -1,0 +1,151 @@
+/**
+ * Design tokens — extracted from the approved design, direction 1a
+ * "Precision instrument" (SPEC §12).
+ *
+ * This file is the ONLY place a literal colour, size or font name may appear.
+ * Components reference these variables and nothing else, which is what the
+ * phase 5 gate checks. If a value is needed that is not here, add it here
+ * first.
+ *
+ * The design's own description of 1a: cool graphite, hairline rules, everything
+ * on a ruler. Numbers lead — mono index, timecode and frame count sit in fixed
+ * columns so the eye scans down a single edge. Nothing is rounded; separation
+ * is by hairline rule and by surface lightness.
+ */
+
+:root {
+  /* -- Surfaces ---------------------------------------------------------
+     Four steps of lightness. Chrome is the darker step, the working area is
+     the mid step, and the preview well is darkest so the frame under review
+     is the brightest thing on screen. */
+  --surface-well: #101215;
+  --surface-chrome: #15181b;
+  --surface-base: #191c20;
+  --surface-raised: #1e2226;
+
+  /* -- Ink --------------------------------------------------------------
+     Five steps, brightest reserved for the value the user is reading now. */
+  --ink-bright: #e6ebf0;
+  --ink-strong: #dfe5eb;
+  --ink-body: #c8ced5;
+  --ink-quiet: #a8b0b9;
+  --ink-muted: #8a929b;
+  --ink-faint: #767e87;
+  --ink-dim: #6d757e;
+  --ink-dimmest: #5f676f;
+
+  /* -- Accent -----------------------------------------------------------
+     One accent only: a pale blue-grey. It carries selection, focus, and the
+     A/B pairing device, so those three read as the same idea. */
+  --accent: #9fb0c0;
+  --accent-tint-selected: rgba(159, 176, 192, 0.2);
+  --accent-tint-hover: rgba(159, 176, 192, 0.16);
+  --accent-tint-row: rgba(159, 176, 192, 0.13);
+  --accent-tint-pair: rgba(159, 176, 192, 0.16);
+  --accent-edge-pair: rgba(159, 176, 192, 0.45);
+  --accent-span: rgba(159, 176, 192, 0.75);
+
+  /* -- Attention --------------------------------------------------------
+     Amber, used only for "this needs checking": low-confidence cut
+     boundaries and their markers (SPEC §7). */
+  --attention: oklch(0.78 0.12 78);
+  --attention-glow: oklch(0.78 0.12 78 / 0.8);
+
+  /* -- Boundary colours in the overview (SPEC §7) ------------------------ */
+  --cut-hard: rgba(200, 206, 213, 0.55);
+  --cut-soft: rgba(200, 206, 213, 0.3);
+  --cut-soft-wash: rgba(200, 206, 213, 0.5);
+  --shot-block: rgba(200, 206, 213, 0.1);
+  --shot-block-alt: rgba(200, 206, 213, 0.17);
+  --shot-block-rejected: rgba(200, 206, 213, 0.05);
+
+  /* -- Rules ------------------------------------------------------------
+     Three weights of hairline. Nothing heavier exists in this design. */
+  --rule: 1px solid rgba(255, 255, 255, 0.09);
+  --rule-quiet: 1px solid rgba(255, 255, 255, 0.07);
+  --rule-faint: 1px solid rgba(255, 255, 255, 0.06);
+  --rule-frame: 1px solid rgba(255, 255, 255, 0.14);
+  --rule-thumb: 1px solid rgba(255, 255, 255, 0.1);
+
+  /* -- Incidental surfaces --------------------------------------------
+     Scrims behind small text over imagery, the dashed intake edge, and the
+     splitter grip. Not palette, but they are literals, so they live here
+     with everything else rather than in a component. */
+  --scrim-text: 0 1px 2px rgba(0, 0, 0, 0.7);
+  --scrim-text-strong: 0 1px 2px rgba(0, 0, 0, 0.9);
+  --edge-dashed: 1px dashed rgba(255, 255, 255, 0.14);
+  --grip: rgba(255, 255, 255, 0.28);
+  --tick-line: 1px solid rgba(255, 255, 255, 0.12);
+
+  /* -- Radius -----------------------------------------------------------
+     1a rounds nothing. Kept as a token so the intent is explicit rather
+     than an omission. */
+  --radius: 0;
+
+  /* -- Type -------------------------------------------------------------
+     Condensed sans for labels, mono for every number. Numbers are tabular
+     throughout so columns line up down the page. */
+  --font-sans: 'IBM Plex Sans Condensed', 'Segoe UI Semibold', 'Segoe UI', system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', 'Cascadia Mono', Consolas, 'Roboto Mono', monospace;
+
+  --text-8: 8px;
+  --text-85: 8.5px;
+  --text-9: 9px;
+  --text-95: 9.5px;
+  --text-10: 10px;
+  --text-105: 10.5px;
+  --text-11: 11px;
+  --text-12: 12px;
+  --text-13: 13px;
+  --text-16: 16px;
+  --text-22: 22px;
+
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+
+  /* Letter-spacing rises as type gets smaller and more uppercase. */
+  --tracking-filename: 0.03em;
+  --tracking-button: 0.06em;
+  --tracking-label: 0.11em;
+  --tracking-watermark: 0.14em;
+
+  /* -- Spacing ----------------------------------------------------------
+     The design works on small even steps with a few odd values where a
+     hairline has to be accounted for. */
+  --space-1: 2px;
+  --space-2: 4px;
+  --space-3: 6px;
+  --space-4: 7px;
+  --space-5: 8px;
+  --space-6: 10px;
+  --space-7: 12px;
+  --space-8: 18px;
+  --space-9: 22px;
+  --space-10: 26px;
+  --space-11: 40px;
+
+  /* -- Fixed dimensions -------------------------------------------------
+     The board width is locked by SPEC §7, not by the design. */
+  --board-width: 200px;
+  --header-height: 34px;
+  --pane-label-height: 24px;
+  --splitter-height: 7px;
+  --timeline-height: 246px;
+  --ticks-height: 22px;
+  --overview-height: 44px;
+  --readout-height: 30px;
+  --shot-meta-height: 20px;
+  --frame-cell-width: 46px;
+  --board-number-column: 30px;
+  --board-thumb-height: 86px;
+  --board-pair-thumb-height: 48px;
+
+  /* -- Focus ------------------------------------------------------------
+     One treatment everywhere (SPEC §7 / phase 5 gate: focus must be visible
+     on every interactive element). Offset varies because some elements are
+     flush against a rule and some are not. */
+  --focus-ring: 2px solid var(--accent);
+  --focus-offset-outside: 1px;
+  --focus-offset-inside: -2px;
+}

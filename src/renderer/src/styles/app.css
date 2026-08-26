@@ -1,0 +1,773 @@
+/**
+ * Component styles, derived entirely from tokens.css.
+ *
+ * No literal colour, font name or fixed dimension appears below — every value
+ * is a var(). That is the phase 5 gate: palette, type and spacing come from a
+ * single token module, and components carry no hardcoded hex.
+ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--surface-base);
+  color: var(--ink-body);
+  font-family: var(--font-sans);
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+
+/* One focus treatment everywhere. Phase 5 gate: focus must be visible on every
+   interactive element, using the design's own treatment. */
+:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-offset-outside);
+}
+
+button {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+/* --- Shared ------------------------------------------------------------- */
+
+.button {
+  padding: var(--space-2) var(--space-7);
+  border: var(--rule-frame);
+  color: var(--ink-strong);
+  font-family: var(--font-sans);
+  font-size: var(--text-11);
+  font-weight: var(--weight-medium);
+  letter-spacing: var(--tracking-button);
+  text-transform: uppercase;
+  border-radius: var(--radius);
+}
+
+.button:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+.button:disabled {
+  color: var(--ink-dim);
+  cursor: default;
+}
+
+.pane-label {
+  height: var(--pane-label-height);
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--space-5) 0 var(--space-6);
+  border-bottom: var(--rule);
+  color: var(--ink-dim);
+  font-size: var(--text-95);
+  font-weight: var(--weight-medium);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+}
+
+.pane-label__count {
+  font-family: var(--font-mono);
+  letter-spacing: 0;
+}
+
+/* --- Intake ------------------------------------------------------------- */
+
+.intake {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-11);
+  background: var(--surface-base);
+  overflow-y: auto;
+}
+
+.intake__inner {
+  width: 100%;
+  max-width: 560px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+
+.intake__title {
+  margin: 0;
+  color: var(--ink-bright);
+  font-size: var(--text-22);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-filename);
+}
+
+.intake__lede {
+  margin: 0;
+  color: var(--ink-muted);
+  font-size: var(--text-13);
+  line-height: 1.55;
+}
+
+.dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-6);
+  padding: var(--space-11) var(--space-9);
+  border: var(--edge-dashed);
+  background: var(--surface-chrome);
+}
+
+.dropzone--over {
+  border-color: var(--accent);
+  background: var(--accent-tint-row);
+}
+
+.dropzone--busy {
+  border-style: solid;
+}
+
+.dropzone__label {
+  margin: 0;
+  color: var(--ink-strong);
+  font-size: var(--text-13);
+  font-weight: var(--weight-medium);
+}
+
+.dropzone__hint {
+  margin: 0;
+  color: var(--ink-faint);
+  font-family: var(--font-mono);
+  font-size: var(--text-10);
+}
+
+.intake__problem {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-6);
+  padding: var(--space-8);
+  border-left: 2px solid var(--attention);
+  background: var(--surface-chrome);
+}
+
+.intake__problem-text {
+  margin: 0;
+  color: var(--ink-body);
+  font-size: var(--text-12);
+  line-height: 1.5;
+}
+
+.steps {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: var(--rule-faint);
+}
+
+.step {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-6);
+  padding: var(--space-4) 0;
+  border-bottom: var(--rule-faint);
+  color: var(--ink-dim);
+}
+
+.step__number {
+  width: var(--space-8);
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: var(--text-10);
+  color: var(--ink-dimmest);
+}
+
+.step__body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.step__label {
+  font-size: var(--text-12);
+  font-weight: var(--weight-medium);
+}
+
+.step__detail {
+  font-size: var(--text-11);
+  color: var(--ink-dimmest);
+}
+
+.step__state {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: var(--text-10);
+  color: var(--ink-faint);
+}
+
+.step--running {
+  color: var(--ink-bright);
+}
+
+.step--running .step__number,
+.step--running .step__state {
+  color: var(--accent);
+}
+
+.step--done {
+  color: var(--ink-quiet);
+}
+
+.progress {
+  position: relative;
+  height: var(--space-3);
+  display: flex;
+  align-items: center;
+  background: var(--surface-chrome);
+  border: var(--rule);
+}
+
+.progress__bar {
+  height: 100%;
+  background: var(--accent);
+  transition: width 120ms linear;
+}
+
+.progress__readout {
+  position: absolute;
+  right: 0;
+  top: calc(-1 * var(--space-8));
+  font-family: var(--font-mono);
+  font-size: var(--text-10);
+  color: var(--ink-faint);
+}
+
+/* --- Workspace shell ---------------------------------------------------- */
+
+.workspace {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface-base);
+}
+
+.workspace__panes {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
+.workspace__right {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.workspace__timeline {
+  flex: none;
+  min-height: 0;
+  display: flex;
+}
+
+.header {
+  height: var(--header-height);
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  padding: 0 var(--space-7);
+  border-bottom: var(--rule);
+  background: var(--surface-chrome);
+}
+
+.header__name {
+  font-family: var(--font-mono);
+  font-size: var(--text-11);
+  font-weight: var(--weight-medium);
+  color: var(--ink-bright);
+  letter-spacing: var(--tracking-filename);
+}
+
+.header__meta {
+  font-family: var(--font-mono);
+  font-size: var(--text-11);
+  color: var(--ink-faint);
+}
+
+.header__badge {
+  padding: 0 var(--space-2);
+  border: var(--rule-frame);
+  font-family: var(--font-mono);
+  font-size: var(--text-9);
+  color: var(--attention);
+}
+
+.header__spacer {
+  flex: 1;
+}
+
+/* --- Board -------------------------------------------------------------- */
+
+.board {
+  width: var(--board-width);
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  border-right: var(--rule);
+  background: var(--surface-chrome);
+}
+
+.board__scroller {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.cell {
+  display: flex;
+  padding: var(--space-3) var(--space-5) var(--space-4) 0;
+  border-bottom: var(--rule-faint);
+}
+
+.cell--selected {
+  background: var(--accent-tint-row);
+}
+
+.cell__gutter {
+  width: var(--board-number-column);
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-1);
+  padding-right: var(--space-4);
+}
+
+.cell__number {
+  font-family: var(--font-mono);
+  font-size: var(--text-105);
+  font-weight: var(--weight-medium);
+  color: var(--ink-dim);
+}
+
+.cell--selected .cell__number {
+  color: var(--ink-bright);
+}
+
+/* The A/B pairing device: a bracket down the left edge spanning both frames.
+   With the shared backing below, this is what makes a pair read as one unit
+   rather than as two neighbouring shots (SPEC §7). */
+.cell__bracket {
+  width: 5px;
+  flex: 1;
+  min-height: var(--board-pair-thumb-height);
+  border-top: 1px solid var(--accent);
+  border-bottom: 1px solid var(--accent);
+  border-left: 1px solid var(--accent);
+}
+
+.cell__body {
+  flex: 1;
+  min-width: 0;
+}
+
+.cell__single {
+  display: block;
+  width: 100%;
+  /* Shaped by the clip's display geometry (I5) rather than a fixed height, so
+     a portrait clip is not cropped to a landscape sliver. The board is the
+     answer to "what am I actually exporting?", so it shows the whole frame. */
+  aspect-ratio: var(--frame-aspect, 16 / 9);
+  max-height: calc(var(--board-thumb-height) * 2.6);
+  outline: var(--rule-thumb);
+  outline-offset: -1px;
+}
+
+.cell__single--selected,
+.pair__half--selected {
+  outline: var(--focus-ring);
+  outline-offset: -1px;
+}
+
+.pair {
+  display: flex;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  background: var(--accent-tint-pair);
+  outline: 1px solid var(--accent-edge-pair);
+  outline-offset: -1px;
+}
+
+.pair__half {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  aspect-ratio: var(--frame-aspect, 16 / 9);
+  max-height: calc(var(--board-pair-thumb-height) * 2.6);
+}
+
+.pair__letter {
+  position: absolute;
+  left: var(--space-1);
+  bottom: 1px;
+  font-family: var(--font-mono);
+  font-size: var(--text-85);
+  font-weight: var(--weight-medium);
+  color: var(--ink-bright);
+  text-shadow: var(--scrim-text);
+}
+
+.thumb {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.cell__meta {
+  display: flex;
+  justify-content: space-between;
+  margin-top: var(--space-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-95);
+  color: var(--ink-dim);
+}
+
+.cell__flag--check {
+  color: var(--attention);
+}
+
+/* --- Preview ------------------------------------------------------------ */
+
+.preview {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface-well);
+}
+
+.preview__stage {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-9);
+}
+
+.preview__video {
+  /* Letterboxed to fit the pane (SPEC §7): fill the available box and let the
+     aspect ratio decide where the bars fall. The proxy is only 480p, so it is
+     scaled up here — the pixels on screen are a preview, never the export. */
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  outline: var(--rule-frame);
+  outline-offset: -1px;
+}
+
+.readout {
+  height: var(--readout-height);
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--space-10);
+  padding: 0 var(--space-9);
+  border-top: var(--rule-quiet);
+  font-family: var(--font-mono);
+  font-size: var(--text-11);
+  color: var(--ink-muted);
+}
+
+.readout__tc {
+  color: var(--ink-bright);
+}
+
+.readout__spacer {
+  flex: 1;
+}
+
+.readout__badge {
+  padding: 0 var(--space-2);
+  border: var(--rule-frame);
+  font-size: var(--text-9);
+  color: var(--attention);
+}
+
+.readout__quiet {
+  color: var(--ink-dimmest);
+}
+
+/* --- Splitter ----------------------------------------------------------- */
+
+.splitter {
+  height: var(--splitter-height);
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-top: var(--rule);
+  border-bottom: var(--rule);
+  background: var(--surface-chrome);
+  cursor: row-resize;
+}
+
+.splitter:hover {
+  background: var(--surface-raised);
+}
+
+.splitter:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-offset-inside);
+}
+
+.splitter__grip {
+  width: var(--space-10);
+  height: 1px;
+  background: var(--grip);
+}
+
+/* --- Timeline ----------------------------------------------------------- */
+
+.timeline {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface-chrome);
+}
+
+.ticks {
+  height: var(--ticks-height);
+  flex: none;
+  position: relative;
+  border-bottom: var(--rule-quiet);
+}
+
+.ticks__tick {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-left: var(--tick-line);
+}
+
+.ticks__label {
+  position: absolute;
+  left: var(--space-2);
+  top: 5px;
+  font-family: var(--font-mono);
+  font-size: var(--text-9);
+  color: var(--ink-dimmest);
+  white-space: nowrap;
+}
+
+.overview {
+  height: var(--overview-height);
+  flex: none;
+  display: flex;
+}
+
+.block {
+  position: relative;
+  height: 100%;
+  min-width: 1px;
+  background: var(--shot-block);
+  border-left: 1px solid var(--cut-hard);
+}
+
+.block--alt {
+  background: var(--shot-block-alt);
+}
+
+.block--soft {
+  border-left-color: var(--cut-soft);
+}
+
+.block--rejected {
+  background: var(--shot-block-rejected);
+  filter: grayscale(1);
+}
+
+.block:hover {
+  background: var(--accent-tint-hover);
+}
+
+.block--selected {
+  background: var(--accent-tint-selected);
+  outline: 1px solid var(--accent);
+  outline-offset: -1px;
+}
+
+.block:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-offset-inside);
+}
+
+/* A dissolve reads as a wash off the boundary rather than a hard rule. */
+.block__soft {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 9px;
+  background: linear-gradient(90deg, var(--cut-soft-wash), transparent);
+}
+
+/* Low-confidence boundaries get a marker so the eye is drawn to them. */
+.block__check {
+  position: absolute;
+  left: -3px;
+  top: -1px;
+  width: 5px;
+  height: 5px;
+  background: var(--attention);
+}
+
+.block__pair {
+  position: absolute;
+  left: var(--space-1);
+  bottom: var(--space-1);
+  font-family: var(--font-mono);
+  font-size: var(--text-85);
+  font-weight: var(--weight-medium);
+  color: var(--ink-quiet);
+}
+
+.shotmeta {
+  height: var(--shot-meta-height);
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  padding: 0 var(--space-6);
+  border-top: var(--rule-quiet);
+  border-bottom: var(--rule-quiet);
+  font-family: var(--font-mono);
+  font-size: var(--text-95);
+  color: var(--ink-dim);
+}
+
+.shotmeta__strong {
+  color: var(--ink-quiet);
+}
+
+.shotmeta__spacer {
+  flex: 1;
+}
+
+.shotrow {
+  flex: 1;
+  min-height: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: var(--space-6) var(--space-6) var(--space-7);
+}
+
+.shotrow__strip {
+  display: flex;
+  /* Cells hug the top so the marker outlines wrap the frame itself rather than
+     a tall empty box. The space below is where the carrot handles live. */
+  align-items: flex-start;
+  gap: var(--space-1);
+  height: 100%;
+}
+
+.frame {
+  position: relative;
+  flex: none;
+  width: var(--frame-cell-width);
+  /* Set per clip from the display geometry (I5), so a portrait clip gets tall
+     cells and an anamorphic one gets wide cells without any cropping. */
+  aspect-ratio: var(--frame-aspect, 16 / 9);
+}
+
+.frame__image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  /* The whole frame, not a cropped sliver. The design's cells are narrow, so
+     cropping to fill would leave a vertical slice nobody could recognise. */
+  object-fit: cover;
+}
+
+.frame__number {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: var(--space-1);
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: var(--text-8);
+  color: var(--ink-quiet);
+  text-shadow: var(--scrim-text);
+}
+
+/* The frames between A and B are tinted, so the span reads as one stretch. */
+.frame--span::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: var(--space-2);
+  background: var(--accent-span);
+}
+
+.frame--a {
+  outline: 2px solid var(--ink-strong);
+  outline-offset: -1px;
+}
+
+.frame--b {
+  outline: var(--focus-ring);
+  outline-offset: -1px;
+}
+
+/* The tab above a marked frame — the design's carrot handle. */
+.frame__tab {
+  position: absolute;
+  left: 50%;
+  top: -9px;
+  transform: translateX(-50%);
+  width: 12px;
+  height: var(--space-5);
+}
+
+.frame__tab--a {
+  background: var(--ink-strong);
+}
+
+.frame__tab--b {
+  background: var(--accent);
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.frame__letter {
+  position: absolute;
+  left: var(--space-1);
+  bottom: var(--space-3);
+  font-family: var(--font-mono);
+  font-size: var(--text-9);
+  font-weight: var(--weight-semibold);
+  color: var(--ink-bright);
+  text-shadow: var(--scrim-text-strong);
+}

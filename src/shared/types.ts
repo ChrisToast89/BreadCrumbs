@@ -119,7 +119,78 @@ export interface IpcContract {
     request: { path: string };
     response: IpcResult<VideoIndex>;
   };
+  /**
+   * A clip named by the BREADCRUMBS_OPEN environment variable, to be loaded on
+   * startup. Development only: it exists so the interface can be driven and
+   * screenshotted without a human clicking through a native file dialog, in
+   * the same spirit as the inspect CLI. Null in normal use.
+   */
+  'app:startupPath': {
+    request: void;
+    response: string | null;
+  };
+  /** Open the system file picker. Null when the user cancels. */
+  'project:choose': {
+    request: void;
+    response: string | null;
+  };
+  /**
+   * Run the whole analysis (SPEC §5) and hand back everything the interface
+   * needs. Progress arrives separately on the 'pipeline:progress' event.
+   */
+  'project:analyze': {
+    request: { path: string };
+    response: IpcResult<AnalyzedProject>;
+  };
 }
+
+/**
+ * Everything the renderer needs after analysis. Sent once; after this the
+ * interface never calls ffmpeg again until export (SPEC §5).
+ */
+export interface AnalyzedProject {
+  sourcePath: string;
+  sourceName: string;
+  projectDir: string;
+  /** Custom-protocol URL for the proxy, playable by a <video> element. */
+  proxyUrl: string;
+  proxyWidth: number;
+  proxyHeight: number;
+  index: VideoIndex;
+  shots: Shot[];
+  picks: Pick[];
+  settings: Settings;
+  /**
+   * All thumbnails concatenated, with a byte offset per frame. One transfer
+   * instead of thousands: the renderer slices this into blob URLs once and
+   * then every thumbnail read is an array index (SPEC §5).
+   */
+  thumbnails: {
+    data: ArrayBuffer;
+    /** offsets[n] .. offsets[n + 1] is frame n's JPEG. Length frameCount + 1. */
+    offsets: number[];
+    width: number;
+    height: number;
+  };
+  elapsedMs: number;
+}
+
+/** Main-to-renderer events. Progress cannot be a response — it arrives during. */
+export interface IpcEvents {
+  'pipeline:progress': PipelineProgressEvent;
+}
+
+export type PipelineStepName = 'index' | 'proxy' | 'analyze' | 'detect';
+export type PipelineStepState = 'pending' | 'running' | 'done';
+
+export interface PipelineProgressEvent {
+  overall: number;
+  step: PipelineStepName;
+  stepFraction: number | null;
+  states: Record<PipelineStepName, PipelineStepState>;
+}
+
+export type IpcEventName = keyof IpcEvents;
 
 /**
  * Anything that can fail because of the user's file comes back as this rather
@@ -155,4 +226,12 @@ export type IpcResponse<C extends IpcChannel> = IpcContract[C]['response'];
  */
 export interface BreadCrumbsApi {
   invoke<C extends IpcChannel>(channel: C, request: IpcRequest<C>): Promise<IpcResponse<C>>;
+  /** Subscribe to a main-process event. Returns an unsubscribe function. */
+  on<E extends IpcEventName>(event: E, listener: (payload: IpcEvents[E]) => void): () => void;
+  /**
+   * The real filesystem path of a dropped File. Electron stopped exposing
+   * `File.path` to isolated renderers, so this goes through the preload.
+   * Returns an empty string for anything without a path on disk.
+   */
+  pathForFile(file: File): string;
 }
