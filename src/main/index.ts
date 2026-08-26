@@ -9,6 +9,7 @@ import type {
   AppInfo,
   IpcChannel,
   IpcContract,
+  ExportOutcome,
   IpcResult,
   PipelineProgressEvent,
   Platform,
@@ -18,6 +19,7 @@ import { DEFAULT_SETTINGS } from '../shared/settings.js';
 import { MediaError, indexVideo } from './media/indexVideo.js';
 import { projectDirFor } from './media/proxy.js';
 import { runPipeline } from './pipeline.js';
+import { exportFrames } from './media/exportFrames.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -180,6 +182,52 @@ function registerHandlers(): void {
       return await run;
     } finally {
       analysesInFlight.delete(path);
+    }
+  });
+
+  handle('export:chooseFolder', async ({ current }): Promise<string | null> => {
+    const result = await dialog.showOpenDialog({
+      title: 'Choose a folder to export into',
+      buttonLabel: 'Export here',
+      properties: ['openDirectory', 'createDirectory'],
+      ...(current ? { defaultPath: current } : {}),
+    });
+    return result.canceled ? null : (result.filePaths[0] ?? null);
+  });
+
+  handle('export:reveal', ({ path }): void => {
+    shell.showItemInFolder(path);
+  });
+
+  handle('export:run', async (request): Promise<IpcResult<ExportOutcome>> => {
+    const window = BrowserWindow.getAllWindows()[0];
+    try {
+      const index = await indexVideo(request.sourcePath);
+
+      const result = await exportFrames({
+        index,
+        entries: request.entries,
+        outputDir: request.outputDir,
+        format: request.format,
+        quality: request.quality,
+        overwrite: request.overwrite,
+        onProgress: (written, total) => window?.webContents.send('export:progress', { written, total }),
+      });
+
+      return {
+        ok: true,
+        value: {
+          written: result.written,
+          manifestPath: result.manifestPath,
+          outputDir: request.outputDir,
+          elapsedMs: result.elapsedMs,
+          collisions: result.collisions,
+        },
+      };
+    } catch (cause) {
+      const problem =
+        cause instanceof MediaError ? cause.message : `${basename(request.sourcePath)}: ${String(cause)}`;
+      return { ok: false, problem };
     }
   });
 

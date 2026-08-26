@@ -20,7 +20,9 @@
  *                              plus a plot with the detected cuts marked
  *   edit            phase 6    Merge, split, reject, out-frames, undo — all
  *                              exercised at the data layer, no UI involved
- *   export          phase 7    Dry run — the filenames that would be written
+ *   export          phase 7    Dry-run filenames, then a real export whose
+ *                              pixels are compared against frames pulled
+ *                              out a completely different way
  *
  * Flags:
  *   --verify   Cross-check results against an independent ffprobe call. Slow;
@@ -28,7 +30,7 @@
  *   --force    Rebuild the proxy from scratch instead of reusing a cached one.
  */
 
-import { readdir, stat } from 'node:fs/promises';
+import { readFile, readdir, rm, stat } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { basename, dirname, extname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -39,6 +41,10 @@ import { chooseOutFrame, detectShots } from '../src/main/detect.js';
 import { DEFAULT_SETTINGS } from '../src/shared/settings.js';
 import { assertPickRules } from '../src/shared/picks.js';
 import { runEditingChecks } from './editing-checks.js';
+import { compareExports, imageSize } from './export-checks.js';
+import { DEFAULT_PATTERN, planExport } from '../src/shared/exportPattern.js';
+import { exportFrames, filterChain, sizeOf } from '../src/main/media/exportFrames.js';
+import { addOutFrame } from '../src/shared/editing.js';
 import type { Shot } from '../src/shared/types.js';
 import { plotSeries } from './png.js';
 import { FFPROBE_PATH } from '../src/main/media/binaries.js';
@@ -497,7 +503,11 @@ const metricsReporter: Reporter = {
 };
 
 /** Timecode from the PTS table — never from frame / fps. See I1. */
-function timecodeOf(index: { ptsList: Float64Array | number[]; fps: number }, frame: number): string {
+function timecodeOf(
+  index: { ptsList: Float64Array | number[]; fps: number },
+  frame: number,
+  separator = ':',
+): string {
   const pts = Array.from(index.ptsList);
   const seconds = (pts[Math.max(0, Math.min(pts.length - 1, frame))] as number) ?? 0;
   const whole = Math.floor(seconds);
@@ -505,7 +515,7 @@ function timecodeOf(index: { ptsList: Float64Array | number[]; fps: number }, fr
   const mm = String(Math.floor((whole % 3600) / 60)).padStart(2, '0');
   const ss = String(whole % 60).padStart(2, '0');
   const ff = String(Math.round((seconds - whole) * (index.fps || 1))).padStart(2, '0');
-  return `${hh}:${mm}:${ss}:${ff}`;
+  return [hh, mm, ss, ff].join(separator);
 }
 
 const detectReporter: Reporter = {
@@ -685,6 +695,266 @@ const editReporter: Reporter = {
   },
 };
 
+const exportReporter: Reporter = {
+  name: 'export',
+  phase: 7,
+  async run(file, options) {
+    const projectDir = await projectDirFor(join(projectRoot, 'inspect-out'), file);
+    const result = await runPipeline({
+      sourcePath: file,
+      projectDir,
+      ...(options.force ? { force: true } : {}),
+    });
+    const { index } = result;
+
+    // Give one shot an out-frame so the run covers a board mixing single and
+    // paired shots, which is what SPEC section 8's {ab} rule is about.
+    let board = { shots: result.shots, picks: result.picks };
+    const roomy = board.shots.find((shot) => shot.endFrame - shot.startFrame > 6);
+    if (roomy) board = addOutFrame(board, roomy.id, result.metrics, DEFAULT_SETTINGS);
+
+    const plan = planExport({
+      pattern: DEFAULT_PATTERN,
+      sourceName: basename(file),
+      index,
+      shots: board.shots,
+      picks: board.picks,
+      extension: 'png',
+    });
+
+    section('export plan');
+    field('pattern', DEFAULT_PATTERN);
+    field('frames', plan.entries.length);
+    field('problem', plan.problem ? plan.problem.message : 'none');
+    for (const entry of plan.entries.slice(0, 5)) {
+      write(
+        `    ${String(entry.index).padStart(3)}  frame ${String(entry.frame).padStart(5)}  ${entry.filename}`,
+      );
+    }
+    if (plan.entries.length > 5) write(`    ...  ${plan.entries.length - 5} more`);
+
+    section('pattern checks');
+
+    const paired = plan.entries.filter((entry) => entry.ab !== '');
+    const singles = plan.entries.filter((entry) => entry.ab === '');
+    checkLine(
+      'ab is empty on singles, set on pairs',
+      paired.length === (roomy ? 2 : 0) && singles.length === plan.entries.length - paired.length,
+      `${singles.length} single, ${paired.length} paired`,
+    );
+
+    // Collide on the board as detected — all single-frame shots — so the
+    // implicit {ab} rule cannot rescue the pattern. With a paired shot in the
+    // mix, '{name}' plus the added {ab} can genuinely come out unique, which
+    // is correct behaviour and would make this a meaningless test.
+    const colliding = planExport({
+      pattern: '{name}',
+      sourceName: basename(file),
+      index,
+      shots: result.shots,
+      picks: result.picks,
+      extension: 'png',
+    });
+    // On a single-shot clip '{name}' does not actually collide: the implicit
+    // {ab} rule already separates the only two frames. The check only means
+    // something when there is more than one shot to tell apart.
+    const canCollide = result.shots.filter((shot) => !shot.rejected).length > 1;
+    if (canCollide) {
+      checkLine(
+        'a colliding pattern is rejected',
+        colliding.problem !== null && colliding.problem.message.includes('Add {'),
+        colliding.problem ? colliding.problem.message.slice(0, 72) : 'not rejected',
+      );
+    } else {
+      checkLine(
+        'a single-shot clip needs no collision fix',
+        colliding.problem === null,
+        'one shot, so {name} plus the implicit {ab} is already unique',
+      );
+    }
+
+    const noAb = planExport({
+      pattern: '{name}_shot{shot:03}',
+      sourceName: basename(file),
+      index,
+      shots: board.shots,
+      picks: board.picks,
+      extension: 'png',
+    });
+    checkLine(
+      'ab added when omitted but needed',
+      roomy ? noAb.abWasAdded && noAb.problem === null : true,
+      roomy ? 'added, so no collision' : 'no paired shots in this clip',
+    );
+
+    const outputDir = join(projectDir, 'export');
+    await rm(outputDir, { recursive: true, force: true });
+
+    const run = await exportFrames({
+      index,
+      entries: plan.entries,
+      outputDir,
+      format: 'png',
+      quality: 90,
+      overwrite: true,
+    });
+
+    section('export run');
+    field('written', `${run.written.length} files in ${run.elapsedMs}ms`);
+    field('output', outputDir);
+
+    section('export checks');
+
+    // I4 counted from the command actually used, not from intent.
+    const wanted = new Set(plan.entries.map((entry) => entry.frame)).size;
+    const selects = (run.command.join(' ').match(/eq\(n/g) ?? []).length;
+    checkLine(
+      'one decode pass for every frame (I4)',
+      selects === wanted,
+      `1 invocation, ${selects} frames in one select expression`,
+    );
+
+    checkLine(
+      'export reads the original, not the proxy (I3)',
+      run.command.includes(index.path) && !run.command.some((part) => part.includes('proxy.mp4')),
+      basename(index.path),
+    );
+
+    checkLine(
+      'every planned file was written',
+      run.written.length === plan.entries.length,
+      `${run.written.length} of ${plan.entries.length}`,
+    );
+
+    const first = plan.entries[0];
+    if (first) {
+      const size = await imageSize(join(outputDir, first.filename));
+      checkLine(
+        'full source resolution, display geometry (I5)',
+        size.width === index.displayWidth && size.height === index.displayHeight,
+        `${size.width} x ${size.height}, expected ${index.displayWidth} x ${index.displayHeight}`,
+      );
+    }
+
+    if (index.hdr) {
+      write('    ....  pixel identity                    skipped: HDR is tonemapped on purpose');
+    } else {
+      const step = Math.max(1, Math.floor(plan.entries.length / 5));
+      const sample = plan.entries
+        .filter((_, position) => position % step === 0)
+        .slice(0, 5)
+        .map((entry) => ({ frame: entry.frame, path: join(outputDir, entry.filename) }));
+
+      const comparisons = await compareExports(index, sample, projectDir);
+      section('pixel identity');
+      for (const comparison of comparisons) {
+        checkLine(
+          `frame ${comparison.frame} matches a direct extract`,
+          comparison.identical,
+          comparison.note,
+        );
+      }
+    }
+
+    const manifest = await readFile(run.manifestPath, 'utf8');
+    const rows = manifest.trim().split('\n');
+    section('manifest checks');
+    checkLine(
+      'one row per file, plus a header',
+      rows.length === run.written.length + 1,
+      `${rows.length - 1} rows for ${run.written.length} files`,
+    );
+    checkLine(
+      'carries the SPEC section 8 columns including role',
+      rows[0] ===
+        'index,shot,role,frame,timecode,seconds,filename,shot_start_frame,shot_end_frame,shot_duration_frames,confidence',
+      (rows[0] ?? '').slice(0, 58),
+    );
+
+    let orderOk = true;
+    const seenB = new Set<number>();
+    for (const entry of plan.entries) {
+      if (entry.role === 'B') seenB.add(entry.shotNumber);
+      if (entry.role === 'A' && seenB.has(entry.shotNumber)) orderOk = false;
+    }
+    checkLine('A precedes B within a shot', orderOk, 'ordered by shot, then role');
+
+    const mismatched = plan.entries.filter(
+      (entry) => entry.timecode !== timecodeOf(index, entry.frame, '-'),
+    ).length;
+    checkLine('manifest timecodes match the interface', mismatched === 0, `${mismatched} mismatched`);
+
+    const second = await exportFrames({
+      index,
+      entries: plan.entries,
+      outputDir,
+      format: 'png',
+      quality: 90,
+      overwrite: false,
+    });
+    checkLine(
+      'existing files are reported, not overwritten',
+      second.written.length === 0 && second.collisions.length === plan.entries.length,
+      `${second.collisions.length} existing files reported back`,
+    );
+
+    // JPEG is lossy, so it cannot be compared byte for byte against a PNG
+    // reference. What matters is that it writes real images at full source
+    // resolution, and that the quality control actually changes the file.
+    const jpegDir = join(projectDir, 'export-jpeg');
+    await rm(jpegDir, { recursive: true, force: true });
+    const sample = plan.entries.slice(0, 2);
+
+    const jpegEntries = sample.map((entry) => ({
+      ...entry,
+      filename: entry.filename.replace(/\.png$/, '.jpg'),
+    }));
+    const written = await exportFrames({
+      index,
+      entries: jpegEntries,
+      outputDir: jpegDir,
+      format: 'jpeg',
+      quality: 95,
+      overwrite: true,
+    });
+    const lowRun = await exportFrames({
+      index,
+      entries: jpegEntries.map((entry) => ({ ...entry, filename: `low_${entry.filename}` })),
+      outputDir: jpegDir,
+      format: 'jpeg',
+      quality: 20,
+      overwrite: true,
+    });
+
+    const firstJpeg = jpegEntries[0];
+    if (firstJpeg) {
+      const size = await imageSize(join(jpegDir, firstJpeg.filename));
+      const bigBytes = await sizeOf(join(jpegDir, firstJpeg.filename));
+      const smallBytes = await sizeOf(join(jpegDir, `low_${firstJpeg.filename}`));
+
+      section('jpeg checks');
+      checkLine(
+        'jpeg writes at full source resolution',
+        size.width === index.displayWidth && size.height === index.displayHeight,
+        `${size.width} x ${size.height}`,
+      );
+      checkLine(
+        'quality changes the file size',
+        smallBytes > 0 && bigBytes > smallBytes,
+        `q95 ${bigBytes} bytes, q20 ${smallBytes} bytes`,
+      );
+      checkLine(
+        'jpeg run wrote every frame',
+        written.written.length === jpegEntries.length && lowRun.written.length === jpegEntries.length,
+        `${written.written.length} + ${lowRun.written.length}`,
+      );
+    }
+    await rm(jpegDir, { recursive: true, force: true });
+
+    field('filter chain', filterChain(index, [1, 2, 3]).slice(0, 90));
+  },
+};
+
 /** Phases add their reporters here, in pipeline order. */
 const reporters: Reporter[] = [
   fileReporter,
@@ -693,6 +963,7 @@ const reporters: Reporter[] = [
   metricsReporter,
   detectReporter,
   editReporter,
+  exportReporter,
 ];
 
 // --- fixture discovery -----------------------------------------------------

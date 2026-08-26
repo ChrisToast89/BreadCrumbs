@@ -16,12 +16,13 @@ import { Board } from './Board.js';
 import { Preview } from './Preview.js';
 import { Timeline } from './Timeline.js';
 import { HintBar } from './HintBar.js';
+import { ExportBar } from './ExportBar.js';
 
 /** Bounds for the draggable split, so neither pane can be dragged away. */
 const MIN_TIMELINE = 150;
 const MIN_PREVIEW = 200;
 
-function Header(): JSX.Element {
+function Header({ onExport }: { onExport: () => void }): JSX.Element {
   const project = useStore((state) => state.project);
   const shots = useStore((state) => state.shots);
   const picks = useStore((state) => state.picks);
@@ -72,7 +73,7 @@ function Header(): JSX.Element {
       <button type="button" className="button" onClick={() => void reset()}>
         Choose another
       </button>
-      <button type="button" className="button" disabled title="Export arrives in phase 7">
+      <button type="button" className="button button--primary" onClick={onExport}>
         Export frames
       </button>
     </header>
@@ -93,6 +94,7 @@ export function Workspace(): JSX.Element {
   const removeOutFrame = useStore((state) => state.removeOutFrame);
   const undo = useStore((state) => state.undo);
 
+  const [exporting, setExporting] = useState(false);
   const [timelineHeight, setTimelineHeight] = useState(246);
   const splitRef = useRef<HTMLDivElement>(null);
   const dragging = useRef(false);
@@ -215,7 +217,7 @@ export function Workspace(): JSX.Element {
 
   return (
     <div className="workspace">
-      <Header />
+      <Header onExport={() => setExporting(true)} />
       <div className="workspace__panes">
         <Board />
         <div className="workspace__right" ref={splitRef}>
@@ -243,6 +245,7 @@ export function Workspace(): JSX.Element {
         </div>
       </div>
       <HintBar />
+      {exporting ? <ExportBar onClose={() => setExporting(false)} /> : null}
     </div>
   );
 }

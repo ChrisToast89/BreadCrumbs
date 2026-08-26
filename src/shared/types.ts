@@ -142,6 +142,60 @@ export interface IpcContract {
     request: { path: string };
     response: IpcResult<AnalyzedProject>;
   };
+  /** Pick a folder to export into. Null when the user cancels. */
+  'export:chooseFolder': {
+    request: { current: string | null };
+    response: string | null;
+  };
+  /**
+   * Write the frames. The renderer sends the plan it previewed, so the names
+   * on screen and the names on disk come from one calculation.
+   */
+  'export:run': {
+    request: ExportRequest;
+    response: IpcResult<ExportOutcome>;
+  };
+  /** Show the exported folder in the system file manager (SPEC §8). */
+  'export:reveal': {
+    request: { path: string };
+    response: void;
+  };
+}
+
+export interface ExportRequest {
+  sourcePath: string;
+  outputDir: string;
+  format: 'png' | 'jpeg';
+  quality: number;
+  overwrite: boolean;
+  /** Exactly what to write, as previewed. */
+  entries: ExportPlanEntry[];
+}
+
+/** The subset of an export entry that has to cross IPC. */
+export interface ExportPlanEntry {
+  index: number;
+  shotNumber: number;
+  shotId: string;
+  frame: number;
+  ab: '' | 'A' | 'B';
+  role: '' | 'A' | 'B';
+  timecode: string;
+  seconds: number;
+  shotStartFrame: number;
+  shotEndFrame: number;
+  shotDurationFrames: number;
+  confidence: number;
+  filename: string;
+}
+
+export interface ExportOutcome {
+  written: string[];
+  manifestPath: string;
+  outputDir: string;
+  elapsedMs: number;
+  /** Non-empty when files already existed and overwrite was not granted. */
+  collisions: string[];
 }
 
 /**
@@ -185,6 +239,7 @@ export interface AnalyzedProject {
 /** Main-to-renderer events. Progress cannot be a response — it arrives during. */
 export interface IpcEvents {
   'pipeline:progress': PipelineProgressEvent;
+  'export:progress': { written: number; total: number };
 }
 
 export type PipelineStepName = 'index' | 'proxy' | 'analyze' | 'detect';
