@@ -1,0 +1,96 @@
+# Packaging — MILESTONES phase 8.
+#
+# The one thing that reliably breaks here: the ffmpeg and ffprobe executables
+# get packed inside the app archive (asar), where the operating system cannot
+# execute them. `asarUnpack` keeps them on the real filesystem, and
+# src/main/media/binaries.ts rewrites the path at runtime to match.
+
+appId: dev.breadcrumbs.app
+productName: BreadCrumbs
+copyright: Copyright (C) 2026 ChrisToast89. GPL v3.
+
+directories:
+  output: release
+  buildResources: build
+
+# Only what the application actually needs at runtime.
+files:
+  - out/**
+  - package.json
+  - LICENSE
+  - NOTICE
+  - SOURCES.md
+  - THIRD-PARTY.md
+  # NOTE: ffprobe-static ships prebuilt binaries for all six platform/arch
+  # pairs — 336MB, larger than Electron itself. The unwanted ones are excluded
+  # per platform below, NOT blanket-excluded here: a blanket exclusion is not
+  # re-openable by a platform section, and silently produced a package with no
+  # ffprobe at all, which builds fine and dies on the first video opened.
+
+# The GPL requires these travel with the binaries they cover.
+extraResources:
+  - from: LICENSE
+    to: LICENSE
+  - from: NOTICE
+    to: NOTICE
+  - from: SOURCES.md
+    to: SOURCES.md
+  - from: THIRD-PARTY.md
+    to: THIRD-PARTY.md
+
+asar: true
+
+# Executables cannot be run from inside the asar archive. Everything here stays
+# unpacked on disk. Without this the app builds cleanly and then fails at
+# runtime with a confusing "file not found", which is the failure mode the
+# build plan warns about.
+asarUnpack:
+  - node_modules/ffmpeg-static/**
+  - node_modules/ffprobe-static/**
+
+win:
+  files:
+    - '!node_modules/ffprobe-static/bin/darwin/**'
+    - '!node_modules/ffprobe-static/bin/linux/**'
+    - '!node_modules/ffprobe-static/bin/win32/ia32/**'
+  target:
+    - target: nsis
+      arch: [x64]
+    - target: zip
+      arch: [x64]
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: BreadCrumbs
+
+mac:
+  files:
+    - '!node_modules/ffprobe-static/bin/win32/**'
+    - '!node_modules/ffprobe-static/bin/linux/**'
+  target:
+    - target: dmg
+      arch: [x64, arm64]
+  category: public.app-category.video
+  # Not signed or notarized: a paid Apple Developer account is deliberately out
+  # of scope for this tool. Users bypass Gatekeeper once with right-click, Open.
+  identity: null
+
+linux:
+  files:
+    - '!node_modules/ffprobe-static/bin/win32/**'
+    - '!node_modules/ffprobe-static/bin/darwin/**'
+    - '!node_modules/ffprobe-static/bin/linux/ia32/**'
+  target:
+    - target: AppImage
+      arch: [x64]
+    - target: deb
+      arch: [x64]
+  category: AudioVideo
+  synopsis: Splits a video at its cuts and exports one still per shot
+
+# Publishing is a deliberate act, never a side effect of building.
+publish: null

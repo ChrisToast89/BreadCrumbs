@@ -15,7 +15,7 @@ Last checked: 26 August 2026, against the tree in `package-lock.json`.
 
 ## 1. Summary for the impatient
 
-BreadCrumbs' own code is Apache License 2.0 (`LICENSE`).
+BreadCrumbs' own code is **GNU General Public License v3** (`LICENSE`).
 
 **31 third-party packages ship with the application.** 27 are MIT, one Apache
 2.0, one ISC, one BSD — all permissive, all satisfied by including their notice
@@ -25,7 +25,8 @@ text. Electron itself is MIT.
 project twice over: `ffmpeg` and `ffprobe`.** Both are currently GPL v3 builds.
 Everything else is routine.
 
-There are two findings that need a decision, in §4.
+Two findings came out of compiling this, in §4. The decision they fed into has
+since been made — see §5.
 
 ---
 
@@ -45,10 +46,15 @@ pipes — are separate works rather than one derived work. On that reading,
 shipping a GPL ffmpeg alongside BreadCrumbs is *aggregation*: the GPL
 obligations attach to ffmpeg, and BreadCrumbs' own code keeps its own licence.
 
-**That reading is widely relied on and genuinely contested.** Bundling the
+**That reading is widely relied on and genuinely contested**, and bundling the
 binary inside our own installer is a weaker position than the user installing
-ffmpeg themselves. This document does not assume the argument succeeds; §4
-recommends removing the need to make it.
+ffmpeg themselves.
+
+**The decision in §5 makes the argument unnecessary.** BreadCrumbs is GPL v3
+and FFmpeg is GPL v3, so there is no licence conflict to resolve and nothing
+turns on whether the two count as one work. This section is retained because it
+is the first thing anyone reviewing the project will ask, and because it would
+become load-bearing again if BreadCrumbs were ever relicensed.
 
 ---
 
@@ -119,45 +125,49 @@ grounds.
 
 ---
 
-## 5. The decision to make
+## 5. The decision, settled
 
-BreadCrumbs' own code is Apache 2.0. Apache 2.0 and GPL v3 are compatible in
-one direction: Apache-licensed code may be incorporated into a GPL v3 work, not
-the reverse. So both routes below are available.
+**BreadCrumbs is released under GPL v3, keeping the bundled GPL FFmpeg
+binaries.** Decided 26 August 2026.
 
-### Route A — Replace ffmpeg and ffprobe with LGPL builds
+Apache 2.0 was the initial preference. Achieving it would have required LGPL
+builds of both binaries, and that route failed on inspection:
 
-The GPL parts of ffmpeg are optional. A build made without them (`libx264`,
-`libx265`, `libxvid` and the rest omitted) is LGPL v2.1 or later, which permits
-bundling inside a work under any licence, including Apache 2.0.
+- No trustworthy source of LGPL builds exists for macOS, which is a required
+  platform.
+- Every npm package claiming to provide LGPL builds was checked and found to
+  ship GPL binaries — `@ffmpeg-installer/ffmpeg` and `@ffprobe-installer/ffprobe`
+  both declare LGPL-2.1 and both are built `--enable-gpl --enable-libx264`.
+  Swapping to them would have left the identical position while appearing
+  solved.
+- Building from source in CI across three platforms was the only remaining way
+  to obtain verified LGPL builds, and was judged disproportionate for a
+  single-function tool.
 
-Obligations that remain, and are routine: ship the LGPL text, state that
-ffmpeg is used and unmodified, and make its corresponding source available.
-Because ffmpeg is a separate executable rather than a linked library, the LGPL
-relinking requirement is satisfied by the user's ability to substitute the
-binary.
+The alternative — not bundling FFmpeg and having users install it themselves —
+removes the obligation entirely, but puts a Homebrew or terminal step in front
+of a non-technical audience. Ease of installation was judged to matter more
+than the difference between Apache and GPL, since both licences leave the tool
+free to use, modify and share.
 
-**Consequence for the product:** `libx264` is what currently encodes the
-preview copy, so it needs replacing. See §6.
+### What this obliges
 
-### Route B — Keep the GPL builds
+1. **Ship the GPL v3 text.** `LICENSE`, included in the packaged application.
+2. **Make the corresponding source available** for the FFmpeg binaries, not just
+   for BreadCrumbs' own code. Exact versions, build configurations and source
+   locations are recorded in [SOURCES.md](SOURCES.md).
+3. **Supply the GPL text for `ffprobe`**, which its npm package omits (§4.2).
+   `LICENSE` covers it.
+4. **Keep BreadCrumbs' own source available**, which a public repository does.
 
-Requires either relying on the arm's-length argument in §2 for BreadCrumbs'
-own code, or releasing BreadCrumbs under GPL v3.
+### Consequence
 
-In both cases the GPL obligations for ffmpeg and ffprobe themselves stand:
-ship their licence texts, and make their corresponding source available to
-every recipient — including the exact build configuration used.
+The technical work in §6 is **not required**. `libx264` stays, the preview copy
+is encoded as it always has been, and no encoder needs replacing. §6 is retained
+only as a record of what the Apache route would have cost, should the decision
+ever be revisited.
 
-### Recommendation
-
-**Route A.** Apache 2.0 was chosen so that others can use this freely; leaning
-on a contested reading to achieve it undercuts the intent, and Route A removes
-the argument rather than winning it.
-
----
-
-## 6. What Route A costs technically
+## 6. What the Apache route would have cost — retained for reference
 
 Removing `libx264` removes the encoder that produces the 480p preview copy.
 That copy has two hard requirements: every frame must be a keyframe (so
@@ -191,13 +201,14 @@ LGPL core, so the frames BreadCrumbs actually produces carry no GPL component.
 
 | File | Contents |
 |---|---|
-| `LICENSE` | Apache License 2.0, verbatim and unmodified |
-| `NOTICE` | Copyright and required attributions |
+| `LICENSE` | GNU General Public License v3, verbatim and unmodified |
+| `NOTICE` | Copyright, licence summary and bundled-software attributions |
+| `SOURCES.md` | Where to obtain source for the bundled FFmpeg binaries |
 | `THIRD-PARTY.md` | This document |
 
 ---
 
 *Prepared by inspecting the installed dependency tree and querying each
 prebuilt binary for its own build configuration. It states what is present and
-what the licences say; it is not legal advice, and the routes in §5 should be
+what the licences say; it is not legal advice, and the position in §5 should be
 confirmed by a qualified adviser before distribution.*

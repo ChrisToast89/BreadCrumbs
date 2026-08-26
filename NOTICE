@@ -1,32 +1,46 @@
 BreadCrumbs
-Copyright 2026 ChrisToast89
+Copyright (C) 2026 ChrisToast89
 
-This product includes software developed as part of the BreadCrumbs project,
-licensed under the Apache License, Version 2.0 (see LICENSE).
+This program is free software: you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free Software
+Foundation, either version 3 of the License, or (at your option) any later
+version.
 
---------------------------------------------------------------------------------
+This program is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE. See the GNU General Public License for more details.
 
-This product bundles third-party software. A full inventory, including the
-licence of every shipped component and what each one obliges, is in
-THIRD-PARTY.md.
+You should have received a copy of the GNU General Public License along with
+this program. If not, see <https://www.gnu.org/licenses/>.
 
-The components requiring attribution beyond a bundled notice file are:
+================================================================================
+BUNDLED SOFTWARE
+================================================================================
 
-  FFmpeg (ffmpeg and ffprobe)
-    https://ffmpeg.org
-    Used as separate executables, invoked as child processes. Not modified,
-    and not linked into BreadCrumbs.
-    The build currently bundled is licensed under the GNU General Public
-    License version 3 or later. Its licence text ships alongside the binary.
-    See THIRD-PARTY.md sections 2 and 5 for the obligations this carries and
-    the decision pending on it.
+BreadCrumbs is distributed with the following third-party software. A full
+inventory, with the licence of every shipped component, is in THIRD-PARTY.md.
 
-  Electron
-    https://electronjs.org
-    MIT licensed. Bundles Chromium and Node.js, whose licence texts are
-    included in the packaged application.
+FFmpeg (ffmpeg and ffprobe executables)
+  https://ffmpeg.org
 
---------------------------------------------------------------------------------
+  Licensed under the GNU General Public License version 3 or later. Used as
+  separate executables, invoked as child processes; not modified, and not
+  linked into BreadCrumbs.
+
+  SOURCE CODE: the GPL requires that the corresponding source for these
+  binaries is available to you. See SOURCES.md for the exact versions, build
+  configurations, and where to obtain the matching source.
+
+Electron
+  https://electronjs.org
+  MIT licensed. Bundles Chromium and Node.js, whose licence texts are included
+  in the packaged application.
+
+Application dependencies
+  27 MIT, 1 Apache-2.0, 1 ISC, 1 BSD. Their notice texts are included in the
+  packaged application. See THIRD-PARTY.md section 3.3.
+
+================================================================================
 
 NOTE: the copyright line above names the GitHub account this repository was
 created under. Replace it with the legal name of the copyright holder — a
