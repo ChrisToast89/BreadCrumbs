@@ -31,6 +31,8 @@ import { basename, dirname, extname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { indexVideo, MediaError } from '../src/main/media/indexVideo.js';
 import { buildProxy, projectDirFor, proxySize } from '../src/main/media/proxy.js';
+import { runPipeline, STEP_LABELS } from '../src/main/pipeline.js';
+import { plotSeries } from './png.js';
 import { FFPROBE_PATH } from '../src/main/media/binaries.js';
 import { run } from '../src/main/media/run.js';
 
@@ -360,8 +362,134 @@ const proxyReporter: Reporter = {
   },
 };
 
+interface Summary {
+  min: number;
+  max: number;
+  mean: number;
+}
+
+function summarise(values: ArrayLike<number>): Summary {
+  if (values.length === 0) return { min: 0, max: 0, mean: 0 };
+  let min = Infinity;
+  let max = -Infinity;
+  let total = 0;
+  for (let i = 0; i < values.length; i += 1) {
+    const value = values[i] as number;
+    if (value < min) min = value;
+    if (value > max) max = value;
+    total += value;
+  }
+  return { min, max, mean: total / values.length };
+}
+
+const metricsReporter: Reporter = {
+  name: 'metrics',
+  phase: 3,
+  async run(file, options) {
+    const projectDir = await projectDirFor(join(projectRoot, 'inspect-out'), file);
+
+    // Measure the whole run, phases 1 through 3, which is what the gate budgets.
+    const before = process.memoryUsage();
+    let lastQuarter = -1;
+
+    const result = await runPipeline({
+      sourcePath: file,
+      projectDir,
+      ...(options.force ? { force: true } : {}),
+      onProgress: (progress) => {
+        const quarter = Math.floor(progress.overall * 4);
+        if (quarter > lastQuarter && quarter < 4) {
+          lastQuarter = quarter;
+          write(`    ...  ${quarter * 25}% overall — ${STEP_LABELS[progress.step].toLowerCase()}`);
+        }
+      },
+    });
+
+    const after = process.memoryUsage();
+    const { index, metrics, analysis } = result;
+
+    section('analysis');
+    field('metrics pass', `${analysis.metricsMs}ms`);
+    field('thumbnail pass', `${analysis.thumbnailsMs}ms`);
+    field('thumbnails', `${analysis.thumbnails.length} at ${analysis.thumbnailWidth}x${analysis.thumbnailHeight}`);
+    field('thumbnail cache', formatBytes(analysis.thumbnailBytes));
+    field('mean thumbnail', formatBytes(Math.round(analysis.thumbnailBytes / Math.max(1, analysis.thumbnails.length))));
+    field('phases 1-3 total', `${(result.elapsedMs / 1000).toFixed(2)}s`);
+    field('heap growth', formatBytes(Math.max(0, after.heapUsed - before.heapUsed)));
+    field('resident memory', formatBytes(after.rss));
+
+    section('metric summary');
+    write('    signal        min       max       mean');
+    const signals: [string, ArrayLike<number>][] = [
+      ['motion', metrics.motion],
+      ['histogram', metrics.histogram],
+      ['sharpness', metrics.sharpness],
+      ['luma', metrics.luma],
+      ['scene', metrics.scene],
+    ];
+    for (const [label, values] of signals) {
+      const { min, max, mean } = summarise(values);
+      write(
+        `    ${label.padEnd(12)}${min.toFixed(4).padStart(8)}  ${max.toFixed(4).padStart(8)}  ${mean.toFixed(4).padStart(8)}`,
+      );
+    }
+
+    // Where the biggest content changes are. On a clip with known cuts these
+    // frame numbers should be the cut frames — a numeric version of "the spikes
+    // line up", which is easier to trust than reading a plot.
+    const ranked = Array.from(metrics.histogram, (value, frame) => ({ value, frame }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 8);
+    field('biggest changes', ranked.map((entry) => `${entry.frame} (${entry.value.toFixed(2)})`).join(', '));
+
+    // The plot the gate asks for: spikes here should line up with the visible
+    // cuts in the clip.
+    const plotPath = join(projectDir, 'metrics.png');
+    plotSeries(
+      plotPath,
+      [
+        { label: 'motion', values: metrics.motion, colour: [90, 200, 255], max: Math.max(0.05, summarise(metrics.motion).max) },
+        { label: 'histogram', values: metrics.histogram, colour: [255, 170, 80], max: Math.max(0.05, summarise(metrics.histogram).max) },
+        { label: 'scene', values: metrics.scene, colour: [180, 130, 255], max: 1 },
+        { label: 'sharpness', values: metrics.sharpness, colour: [130, 230, 150], max: 1 },
+        { label: 'luma', values: metrics.luma, colour: [220, 220, 220], max: 1 },
+      ],
+      { width: Math.min(1400, Math.max(600, index.frameCount)), laneHeight: 90 },
+    );
+    field('plot', plotPath);
+
+    section('metric checks');
+    for (const [label, values] of signals) {
+      checkLine(`${label} length == frame count`, values.length === index.frameCount, `${values.length}`);
+    }
+    checkLine(
+      'thumbnail count == frame count',
+      analysis.thumbnails.length === index.frameCount,
+      `${analysis.thumbnails.length}`,
+    );
+
+    // Ranges declared in SPEC §4.
+    const motionRange = summarise(metrics.motion);
+    const histogramRange = summarise(metrics.histogram);
+    const lumaRange = summarise(metrics.luma);
+    const sharpnessRange = summarise(metrics.sharpness);
+    checkLine(
+      'signals within declared ranges',
+      motionRange.min >= 0 &&
+        motionRange.max <= 1 &&
+        histogramRange.min >= 0 &&
+        histogramRange.max <= 2 &&
+        lumaRange.min >= 0 &&
+        lumaRange.max <= 1 &&
+        sharpnessRange.min >= 0 &&
+        sharpnessRange.max <= 1,
+      `motion<=1, histogram<=2, luma<=1, sharpness<=1`,
+    );
+  },
+};
+
 /** Phases add their reporters here, in pipeline order. */
-const reporters: Reporter[] = [fileReporter, indexReporter, proxyReporter];
+const reporters: Reporter[] = [fileReporter, indexReporter, proxyReporter, metricsReporter];
 
 // --- fixture discovery -----------------------------------------------------
 
