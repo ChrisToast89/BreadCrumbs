@@ -14,18 +14,51 @@ directories:
   buildResources: build
 
 # Only what the application actually needs at runtime.
+#
+# WARNING: a list of positive patterns here does NOT act as a whitelist.
+# electron-builder adds them to its defaults, which sweep in the whole project
+# directory. It also does not read .gitignore. An earlier build therefore
+# packaged samples/, inspect-out/ and fixtures/ — including a real source video
+# and 70MB of generated preview copies — into an installer meant for
+# distribution. Everything not needed at runtime must be excluded explicitly.
 files:
-  - out/**
-  - package.json
-  - LICENSE
-  - NOTICE
-  - SOURCES.md
-  - THIRD-PARTY.md
-  # NOTE: ffprobe-static ships prebuilt binaries for all six platform/arch
-  # pairs — 336MB, larger than Electron itself. The unwanted ones are excluded
-  # per platform below, NOT blanket-excluded here: a blanket exclusion is not
-  # re-openable by a platform section, and silently produced a package with no
-  # ffprobe at all, which builds fine and dies on the first video opened.
+  # IMPORTANT: a platform section's `files` REPLACES this list, it does not
+  # merge with it. Each platform below therefore repeats these patterns in
+  # full. Getting this wrong once put samples/, inspect-out/, src/ and .git
+  # into the installer — including a real source video — because the only rule
+  # in effect for a Windows build was the ffprobe trim in `win.files`.
+  - '**/*'
+
+  # Media: never ship anyone's video, supplied or generated.
+  - '!samples'
+  - '!samples/**'
+  - '!fixtures'
+  - '!fixtures/**'
+  - '!inspect-out'
+  - '!inspect-out/**'
+  - '!release'
+  - '!release/**'
+
+  # Source, tooling, specs and version control.
+  - '!.git'
+  - '!.git/**'
+  - '!src'
+  - '!src/**'
+  - '!tools'
+  - '!tools/**'
+  - '!build'
+  - '!build/**'
+  - '!electron.vite.config.ts'
+  - '!electron-builder.yml'
+  - '!tsconfig.json'
+  - '!tsconfig.node.json'
+  - '!tsconfig.web.json'
+  - '!tsconfig.node.tsbuildinfo'
+  - '!tsconfig.web.tsbuildinfo'
+  - '!SPEC.md'
+  - '!MILESTONES.md'
+  - '!package-lock.json'
+  - '!*.log'
 
 # The GPL requires these travel with the binaries they cover.
 extraResources:
@@ -50,9 +83,43 @@ asarUnpack:
 
 win:
   files:
-    - '!node_modules/ffprobe-static/bin/darwin/**'
-    - '!node_modules/ffprobe-static/bin/linux/**'
-    - '!node_modules/ffprobe-static/bin/win32/ia32/**'
+  - '**/*'
+
+  # Media: never ship anyone's video, supplied or generated.
+  - '!samples'
+  - '!samples/**'
+  - '!fixtures'
+  - '!fixtures/**'
+  - '!inspect-out'
+  - '!inspect-out/**'
+  - '!release'
+  - '!release/**'
+
+  # Source, tooling, specs and version control.
+  - '!.git'
+  - '!.git/**'
+  - '!src'
+  - '!src/**'
+  - '!tools'
+  - '!tools/**'
+  - '!build'
+  - '!build/**'
+  - '!electron.vite.config.ts'
+  - '!electron-builder.yml'
+  - '!tsconfig.json'
+  - '!tsconfig.node.json'
+  - '!tsconfig.web.json'
+  - '!tsconfig.node.tsbuildinfo'
+  - '!tsconfig.web.tsbuildinfo'
+  - '!SPEC.md'
+  - '!MILESTONES.md'
+  - '!package-lock.json'
+  - '!*.log'
+
+  # ffprobe-static carries all six platform builds; keep only this one.
+  - '!node_modules/ffprobe-static/bin/darwin/**'
+  - '!node_modules/ffprobe-static/bin/linux/**'
+  - '!node_modules/ffprobe-static/bin/win32/ia32/**'
   target:
     # Two ways in, both of them a single file the user double-clicks.
     - target: nsis
@@ -82,8 +149,41 @@ portable:
 
 mac:
   files:
-    - '!node_modules/ffprobe-static/bin/win32/**'
-    - '!node_modules/ffprobe-static/bin/linux/**'
+  - '**/*'
+
+  # Media: never ship anyone's video, supplied or generated.
+  - '!samples'
+  - '!samples/**'
+  - '!fixtures'
+  - '!fixtures/**'
+  - '!inspect-out'
+  - '!inspect-out/**'
+  - '!release'
+  - '!release/**'
+
+  # Source, tooling, specs and version control.
+  - '!.git'
+  - '!.git/**'
+  - '!src'
+  - '!src/**'
+  - '!tools'
+  - '!tools/**'
+  - '!build'
+  - '!build/**'
+  - '!electron.vite.config.ts'
+  - '!electron-builder.yml'
+  - '!tsconfig.json'
+  - '!tsconfig.node.json'
+  - '!tsconfig.web.json'
+  - '!tsconfig.node.tsbuildinfo'
+  - '!tsconfig.web.tsbuildinfo'
+  - '!SPEC.md'
+  - '!MILESTONES.md'
+  - '!package-lock.json'
+  - '!*.log'
+
+  - '!node_modules/ffprobe-static/bin/win32/**'
+  - '!node_modules/ffprobe-static/bin/linux/**'
   target:
     - target: dmg
       arch: [x64, arm64]
@@ -94,9 +194,42 @@ mac:
 
 linux:
   files:
-    - '!node_modules/ffprobe-static/bin/win32/**'
-    - '!node_modules/ffprobe-static/bin/darwin/**'
-    - '!node_modules/ffprobe-static/bin/linux/ia32/**'
+  - '**/*'
+
+  # Media: never ship anyone's video, supplied or generated.
+  - '!samples'
+  - '!samples/**'
+  - '!fixtures'
+  - '!fixtures/**'
+  - '!inspect-out'
+  - '!inspect-out/**'
+  - '!release'
+  - '!release/**'
+
+  # Source, tooling, specs and version control.
+  - '!.git'
+  - '!.git/**'
+  - '!src'
+  - '!src/**'
+  - '!tools'
+  - '!tools/**'
+  - '!build'
+  - '!build/**'
+  - '!electron.vite.config.ts'
+  - '!electron-builder.yml'
+  - '!tsconfig.json'
+  - '!tsconfig.node.json'
+  - '!tsconfig.web.json'
+  - '!tsconfig.node.tsbuildinfo'
+  - '!tsconfig.web.tsbuildinfo'
+  - '!SPEC.md'
+  - '!MILESTONES.md'
+  - '!package-lock.json'
+  - '!*.log'
+
+  - '!node_modules/ffprobe-static/bin/win32/**'
+  - '!node_modules/ffprobe-static/bin/darwin/**'
+  - '!node_modules/ffprobe-static/bin/linux/ia32/**'
   target:
     - target: AppImage
       arch: [x64]
