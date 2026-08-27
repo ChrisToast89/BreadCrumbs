@@ -9,6 +9,8 @@ files in one go.
 
 <img width="800" alt="image" src="https://github.com/user-attachments/assets/ebeba07f-3e26-4cfd-bfb8-d5edcfc01e5b" />
 
+*Example footage courtesy of [MXVDXN](https://www.instagram.com/mxvdxn), used with permission.*
+
 It is for storyboards, shot lists, contact sheets, thumbnails, reference
 frames — any time you need "one picture per shot" and don't want to scrub
 through a timeline pausing and screenshotting.
